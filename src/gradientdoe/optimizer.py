@@ -134,11 +134,12 @@ class Optimizer:
             major, minor = torch.cuda.get_device_capability(0)
             logger.debug(f"Compute Capability: {major}.{minor}")
             t = torch.cuda.get_device_properties(0).total_memory
-            r = torch.cuda.get_reserved_memory(0)
-            a = torch.cuda.get_allocated_memory(0)
+            r = torch.cuda.memory_reserved(0)
+            a = torch.cuda.memory_allocated(0)
             f = r - a  # free inside reserved
             logger.debug(f"Total VRAM: {t / 1e9:.2f} GB")
-            logger.debug(f"Free VRAM: {f / 1e9:.2f} GB")
+            logger.debug(f"Reserved:   {r / 1e9:.2f} GB")
+            logger.debug(f"Allocated:  {a / 1e9:.2f} GB")
 
         # Shortcuts
         p = self.exp.grid.pitch
