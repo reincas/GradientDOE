@@ -129,6 +129,16 @@ class Optimizer:
         # Initialise PyTorch environment
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         logger.debug(f"Running on {self.device.type.upper()} with {memory(self.device) / 1024 ** 3:.2f} GB")
+        if self.device.type == "cuda":
+            logger.debug(f"Device Name: {torch.cuda.get_device_name(0)}")
+            major, minor = torch.cuda.get_device_capability(0)
+            logger.debug(f"Compute Capability: {major}.{minor}")
+            t = torch.cuda.get_device_properties(0).total_memory
+            r = torch.cuda.get_reserved_memory(0)
+            a = torch.cuda.get_allocated_memory(0)
+            f = r - a  # free inside reserved
+            logger.debug(f"Total VRAM: {t / 1e9:.2f} GB")
+            logger.debug(f"Free VRAM: {f / 1e9:.2f} GB")
 
         # Shortcuts
         p = self.exp.grid.pitch
