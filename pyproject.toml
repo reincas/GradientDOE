@@ -1,0 +1,42 @@
+# pyproject.toml
+[build-system]
+requires = [
+    "setuptools",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "GradientDOE"
+version = "0.1.0"
+authors = [
+    { name = "Reinhard Caspary", email = "reinhard.caspary@phoenixd.uni-hannover.de"},
+]
+description = "Python 3 package to determine a multi-wavelength DOE."
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy == 2.4.4",
+    "scidatacontainer == 1.2.0",
+    "torch == 2.11.0",
+    "matplotlib == 3.10.9",
+    "pillow == 12.2.0",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent"
+]
+
+[project.urls]
+Homepage = "https://github.com/reincas/GradientDOE"
+Issues = "https://github.com/reincas/AMELI/issues"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
