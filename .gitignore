@@ -1,6 +1,7 @@
 .venv/
 attic/
 private/
+run/plots/
 
 __pycache__/
 *.py[cod]
@@ -25,3 +26,4 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+

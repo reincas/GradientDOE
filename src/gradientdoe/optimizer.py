@@ -90,6 +90,10 @@ class Ema(Parameter):
 
 
 class Optimizer:
+    weight_distance: torch.Tensor
+    sensor_masks: torch.Tensor
+    asm: AngularSpectrumMethod
+
     def __init__(self, exp):
         self.exp = exp
         self.jitter = exp.optimizer.jitter
@@ -113,9 +117,8 @@ class Optimizer:
         self.doe = DiffractiveOpticalElement(self.exp.setup.wavelengths, self.exp.doe.material.values, self.device)
 
         # Initialise the sensor array
-        self.sensor = SensorArray(self.exp.sensor, self.exp.grid)
-        self.weight_distance = torch.tensor(self.sensor.next_distance ** 2, device=self.device, dtype=torch.float32)
-        self.sensor_masks = torch.tensor(self.sensor.masks, device=self.device, dtype=torch.float32)  # (Ns, N, N)
+        self.sensor = SensorArray(self.exp.sensor)
+        self.set_grid(self.exp.grid.count, self.exp.grid.pitch)
 
         # Spectra of all specimen weighted by spectral sensor efficiency
         self.power = torch.tensor(power_spectra(self.exp.setup, self.exp.sensor),
@@ -124,9 +127,11 @@ class Optimizer:
         # Maximum height of the DOE profile
         self.h_max = float(self.exp.doe.maxHeight)
 
-        # Initialise angular spectrum method
-        self.asm = AngularSpectrumMethod(self.exp.grid.count, self.exp.grid.pitch, self.exp.setup.distance,
-                                         self.exp.setup.wavelengths, self.device)
+    def set_grid(self, count, pitch):
+        self.sensor.set_grid(count, pitch)
+        self.weight_distance = torch.tensor(self.sensor.next_distance ** 2, device=self.device, dtype=torch.float32)
+        self.sensor_masks = torch.tensor(self.sensor.masks, device=self.device, dtype=torch.float32)  # (Ns, N, N)
+        self.asm = AngularSpectrumMethod(count, pitch, self.exp.setup.distance, self.exp.setup.wavelengths, self.device)
 
     def get_height(self, h_raw):
         """ Generate DOE height profile (0...h_max) from raw height tensor (soft constraint). """

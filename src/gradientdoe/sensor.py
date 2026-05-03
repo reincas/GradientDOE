@@ -9,7 +9,7 @@ from scipy.special import erf
 
 
 class SensorArray:
-    def __init__(self, sensor, grid):
+    def __init__(self, sensor):
         self.count_x = sensor.horizontalCount
         self.count_y = sensor.verticalCount
         self.pitch = sensor.pitch
@@ -17,11 +17,14 @@ class SensorArray:
         self.fuzzy_radius = sensor.fuzzyRadius
         self.skip_center = sensor.skipCenter
 
-        self.grid_count = grid.count
-        self.grid_pitch = grid.pitch
-
         self.center = self.get_center()
-        self.distance = self.get_distance()
+
+        self.distance = None
+        self.next_distance = None
+        self.masks = None
+
+    def set_grid(self, count, pitch):
+        self.distance = self.get_distance(count, pitch)
         self.next_distance = self.distance.min(axis=0)
         self.masks = self.get_masks()
 
@@ -43,19 +46,19 @@ class SensorArray:
         # Return sensor coordinates
         return centers
 
-    def get_distance(self):
+    def get_distance(self, count, pitch):
         """ Generate a 3D stack of distances to the center of each sensor. """
 
         # Mesh grid of coordinates
-        limit = (self.grid_count * self.grid_pitch) / 2
-        coords = np.linspace(-limit, limit, self.grid_count)
+        limit = (count * pitch) / 2
+        coords = np.linspace(-limit, limit, count)
         x, y = np.meshgrid(coords, coords)
 
         # Sensor center coordinates
         Ns = len(self.center)
 
         # Build distance stack
-        distance = np.zeros((Ns, self.grid_count, self.grid_count), dtype=float)
+        distance = np.zeros((Ns, count, count), dtype=float)
         for s in range(Ns):
             xc, hc = self.center[s]
             distance[s] = np.sqrt((x - xc) ** 2 + (y - hc) ** 2)

@@ -12,7 +12,7 @@ from typing import cast, Any
 
 from gradientdoe.experiment import Experiment
 from gradientdoe.optimizer import Optimizer
-from gradientdoe.propagate import RayleighSommerfeldMethod
+from gradientdoe.propagate import RayleighSommerfeldMethod, AngularSpectrumMethod
 from gradientdoe.sensor import SensorArray
 
 
@@ -48,12 +48,8 @@ def height_image(height, pitch, cmap, name, method, path):
 def power_images(Ps, pitch, sensor, cmap, names, method, path):
     """ Stores sensor plane power images. """
 
-    # Spatial grid
-    assert len(height.shape) == 2
-    assert height.shape[0] == height.shape[1]
-    count = height.shape[0]
-
     # Window edges
+    count = Ps.shape[0]
     limit = (count * pitch) / 2
 
     # Sensor locations
@@ -112,53 +108,59 @@ if __name__ == "__main__":
 
     pitch = exp.grid.pitch
     count = exp.grid.count
-
-    height = np.array(exp.height)
-    H, P, Ps = optimizer.step(height, optimizer.asm, count)
+    print(f"Grid pitch: {exp.grid.pitch:.1f} µm")
+    print(f"Grid count: {exp.grid.count}")
+    print(f"Distance: {exp.setup.distance:.0f} µm")
 
     # cmap = "viridis"
     cmap = "inferno"
     path = "plots/result_{0}_{1}.png"
-
     name = exp.doe.material.model
+    names = [x.model for x in exp.setup.sources]
+
+    height = np.array(exp.height)
     height_image(height, pitch, cmap, name, "opt", path)
 
-    names = [x.model for x in exp.setup.sources]
-    power_images(Ps, pitch, optimizer.sensor, cmap, names, "asm", path)
+    AP_list = []
 
-    # Transformation matrix
-    A = np.linalg.pinv(P, rcond=1e-2)
-    np.set_printoptions(formatter=cast(Any, {'float': '{: 6.3f}'.format}), linewidth=120)
-    print(A)
-    print(P / P.sum(axis=0, keepdims=True))
-    np.set_printoptions(formatter=cast(Any, {'float': '{: .3f}'.format}), linewidth=120)
-    print(A @ P)
+    H, P, Ps = optimizer.step(height, optimizer.asm, count)
+    AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
+    power_images(Ps, pitch, optimizer.sensor, cmap, names, "opt", path)
 
     # names = [f"{lam*1000:.3f} nm" for lam in optimizer.doe.wavelengths]
     # path = "plots/result_w{0}.png"
     # power_images(H, pitch, optimizer.sensor, cmap, names, path)
 
-    M = 2
+    M = 4
     count_fab = count * M
     pitch_fab = pitch / M
     height_fab = optimizer.interpolate_height(height, count_fab)
     height_image(height_fab, pitch_fab, cmap, name, "fab", path)
 
-    rs = RayleighSommerfeldMethod(pitch_fab, pitch, exp.setup.distance, optimizer.doe.wavelengths, optimizer.device)
-    H, P, Ps = optimizer.step(height_fab, rs, count)
-    power_images(Ps, pitch, optimizer.sensor, cmap, names, "rs", path)
+    # rs = RayleighSommerfeldMethod(pitch_fab, pitch, exp.setup.distance, optimizer.doe.wavelengths, optimizer.device)
+    # H, P, Ps = optimizer.step(height_fab, rs, count)
+    # AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
+    # power_images(Ps, pitch, optimizer.sensor, cmap, names, "rs", path)
 
-    # Transformation matrix
-    A = np.linalg.pinv(P, rcond=1e-2)
-    np.set_printoptions(formatter=cast(Any, {'float': '{: 6.3f}'.format}), linewidth=120)
-    print(A)
-    print(P / P.sum(axis=0, keepdims=True))
+    optimizer.set_grid(count_fab, pitch_fab)
+    H, P, Ps = optimizer.step(height_fab, optimizer.asm, count_fab)
+    AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
+    power_images(Ps, pitch_fab, optimizer.sensor, cmap, names, "fab", path)
+
     np.set_printoptions(formatter=cast(Any, {'float': '{: .3f}'.format}), linewidth=120)
-    print(A @ P)
-
-    print(f"Grid pitch: {exp.grid.pitch:.1f} µm")
-    print(f"Grid count: {exp.grid.count}")
-    print(f"Distance: {exp.setup.distance:.0f} µm")
+    Ni = len(exp.setup.sources)
+    Ns = len(optimizer.sensor.center)
+    for i in range(Ni):
+        P = np.empty((len(AP_list), Ns), dtype=float)
+        for j, (_, M) in enumerate(AP_list):
+            P[j, :] = M[:, i] / sum(M[:, i])
+        print(f"Specimen {i}:")
+        print(P)
+    AP = np.empty((Ni, len(AP_list) * Ni), dtype=float)
+    for j, (A, P) in enumerate(AP_list):
+        AP[:, j * 3:j * 3 + Ni] = A @ P
+    print("A @ P:")
+    print(AP)
 
     path = "plots/result.png"
     store_height(height_fab, 0.0002, path)
