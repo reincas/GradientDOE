@@ -146,6 +146,8 @@ class Optimizer:
         Nk = Uo.shape[2]
         Us = torch.empty((count_s, count_s, Nk), dtype=torch.complex64, device=self.device)
         method.propagate(Uo, Us, jitter)
+        print(f"Power in:  {torch.sum(torch.abs(Uo) ** 2) / Uo.numel()}", Uo.shape)
+        print(f"Power out: {torch.sum(torch.abs(Us) ** 2) / Us.numel()}", Us.shape)
 
         # Power matrix for all wavelengths
         H = Us.abs() ** 2

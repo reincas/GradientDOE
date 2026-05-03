@@ -15,7 +15,8 @@ from gradientdoe.optimizer import Optimizer
 from gradientdoe.propagate import RayleighSommerfeldMethod, AngularSpectrumMethod
 from gradientdoe.sensor import SensorArray
 
-M = 4
+M = 2
+RS = 1
 
 
 def height_image(height, pitch, cmap, name, method, path):
@@ -138,10 +139,14 @@ if __name__ == "__main__":
     height_fab = optimizer.interpolate_height(height, count_fab)
     height_image(height_fab, pitch_fab, cmap, name, "fab", path)
 
-    # rs = RayleighSommerfeldMethod(pitch_fab, pitch, exp.setup.distance, optimizer.doe.wavelengths, optimizer.device)
-    # H, P, Ps = optimizer.step(height_fab, rs, count)
-    # AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
-    # power_images(Ps, pitch, optimizer.sensor, cmap, names, "rs", path)
+    if RS:
+        count_out = count_fab
+        pitch_out = pitch_fab
+        optimizer.set_grid(count_out, pitch_out)
+        rs = RayleighSommerfeldMethod(pitch_fab, pitch_out, exp.setup.distance, optimizer.doe.wavelengths, optimizer.device)
+        H, P, Ps = optimizer.step(height_fab, rs, count_out)
+        AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
+        power_images(Ps, pitch_out, optimizer.sensor, cmap, names, "rs", path)
 
     optimizer.set_grid(count_fab, pitch_fab)
     H, P, Ps = optimizer.step(height_fab, optimizer.asm, count_fab)
@@ -154,7 +159,7 @@ if __name__ == "__main__":
     for i in range(Ni):
         P = np.empty((len(AP_list), Ns), dtype=float)
         for j, (_, M) in enumerate(AP_list):
-            P[j, :] = M[:, i] / sum(M[:, i])
+            P[j, :] = M[:, i] #/ sum(M[:, i])
         print(f"Specimen {i}:")
         print(P)
     AP = np.empty((Ni, len(AP_list) * Ni), dtype=float)
