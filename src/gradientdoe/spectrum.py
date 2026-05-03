@@ -125,7 +125,9 @@ class IndexSpectrum(Spectrum):
         raise NotImplementedError()
 
     def interpolate(self, wavelengths):
-        if isinstance(wavelengths, Spectrum):
+        if isinstance(wavelengths, np.ndarray):
+            assert len(wavelengths) == 1
+        elif isinstance(wavelengths, Spectrum):
             spectrum = wavelengths
             wavelengths = np.array(spectrum.wavelengths)
             if spectrum.unit != self.unit:

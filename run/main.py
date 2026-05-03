@@ -38,8 +38,7 @@ EXPERIMENT = {
         "material": None,
         "pitch": 0.25,
         "pitchUnit": "µm",
-        "size": 2000,
-        "sizeUnit": "µm",
+        "count": 8192,
         "maxHeight": 5,
         "maxHeightUnit": "µm",
     },
@@ -52,7 +51,7 @@ EXPERIMENT = {
         "wavelengths": [],
         "wavelengthsUnit": "µm",
         "sources": [],
-        "distance": None,
+        "distance": 150000.0,
         "distanceUnit": "µm",
     },
     "sensor": {
@@ -62,7 +61,7 @@ EXPERIMENT = {
         "pitchUnit": "µm",
         "diameter": 600,
         "diameterUnit": "µm",
-        "fuzzyRadius": 2,
+        "fuzzyRadius": 5,
         "fuzzyRadiusUnit": "µm",
         "skipCenter": True,
         "eta": None,
@@ -72,9 +71,10 @@ EXPERIMENT = {
     "optimizer": {
         "maxLoops": 10000,
         "learningRate": 0.05,
-        "weightOrtho": 0.1,
+        "weightOrtho": 1.0,
         "weightEta": 1.0,
-        "weightCenter": 2.0,
+        "weightCenter": 1.0,
+        "jitter": True,
         "ema": {
             "patience": 100,
             "threshold": 1e-2,
@@ -121,7 +121,7 @@ if __name__ == '__main__':
     exp.adjust_parameters(wavelengths, spectra, material)
 
     # Determine suitable height profile
-    optimizer = Optimizer(exp, jitter=True)
+    optimizer = Optimizer(exp)
     height = optimizer.run()
 
     # Store result

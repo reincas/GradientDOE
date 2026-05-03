@@ -8,77 +8,70 @@ import numpy as np
 from scipy.special import erf
 
 
-def get_center(sensor):
-    """ Get center coordinates of all sensors. """
+class SensorArray:
+    def __init__(self, sensor, grid):
+        self.count_x = sensor.horizontalCount
+        self.count_y = sensor.verticalCount
+        self.pitch = sensor.pitch
+        self.diameter = sensor.diameter
+        self.fuzzy_radius = sensor.fuzzyRadius
+        self.skip_center = sensor.skipCenter
 
-    # Center positions of the sensor array
-    x_center = (np.arange(sensor.horizontalCount) - (sensor.horizontalCount - 1) / 2) * sensor.pitch
-    y_center = (np.arange(sensor.verticalCount) - (sensor.verticalCount - 1) / 2) * sensor.pitch
+        self.grid_count = grid.count
+        self.grid_pitch = grid.pitch
 
-    # List or sensor coordinates
-    centers = []
-    for yc in y_center:
-        for xc in x_center:
-            if sensor.skipCenter and np.isclose(xc, 0) and np.isclose(yc, 0):
-                continue
-            centers.append([xc, yc])
+        self.center = self.get_center()
+        self.distance = self.get_distance()
+        self.next_distance = self.distance.min(axis=0)
+        self.masks = self.get_masks()
 
-    # Return sensor coordinates
-    return centers
+    def get_center(self):
+        """ Get center coordinates of all sensors. """
 
+        # Center positions of the sensor array
+        x_center = (np.arange(self.count_x) - (self.count_x - 1) / 2) * self.pitch
+        y_center = (np.arange(self.count_y) - (self.count_y - 1) / 2) * self.pitch
 
-def get_distance(grid, sensor):
-    """ Generate a 3D stack of distances to the center of each sensor. """
+        # List or sensor coordinates
+        centers = []
+        for yc in y_center:
+            for xc in x_center:
+                if self.skip_center and np.isclose(xc, 0) and np.isclose(yc, 0):
+                    continue
+                centers.append([xc, yc])
 
-    # Sanity checks
-    unit = grid.pitchUnit
-    assert sensor.pitchUnit == unit
-    assert sensor.diameterUnit == unit
+        # Return sensor coordinates
+        return centers
 
-    p = grid.pitch
-    N = grid.count
+    def get_distance(self):
+        """ Generate a 3D stack of distances to the center of each sensor. """
 
-    # Mesh grid of coordinates
-    limit = (N * p) / 2
-    coords = np.linspace(-limit, limit, N)
-    x, y = np.meshgrid(coords, coords)
+        # Mesh grid of coordinates
+        limit = (self.grid_count * self.grid_pitch) / 2
+        coords = np.linspace(-limit, limit, self.grid_count)
+        x, y = np.meshgrid(coords, coords)
 
-    # Sensor center coordinates
-    centers = get_center(sensor)
-    Ns = len(centers)
+        # Sensor center coordinates
+        Ns = len(self.center)
 
-    # Build fuzzy masks
-    distance = np.zeros((Ns, N, N), dtype=float)
-    for s in range(Ns):
-        xc, hc = centers[s]
-        distance[s] = np.sqrt((x - xc) ** 2 + (y - hc) ** 2)
+        # Build distance stack
+        distance = np.zeros((Ns, self.grid_count, self.grid_count), dtype=float)
+        for s in range(Ns):
+            xc, hc = self.center[s]
+            distance[s] = np.sqrt((x - xc) ** 2 + (y - hc) ** 2)
 
-    # Return stack of masks (Ns, N, N)
-    return distance
+        # Return distance stack (Ns, N, N)
+        return distance
 
+    def get_masks(self):
+        """ Generate a 3D stack of fuzzy sensor masks. """
 
-def next_distance(grid, sensor):
-    """ Distance the to the nearest sensor center map. """
+        # Build fuzzy masks
+        masks = np.empty(self.distance.shape, dtype=float)
+        Ns = masks.shape[0]
+        for s in range(Ns):
+            r = self.distance[s]
+            masks[s] = 0.5 * (1 - erf((r - self.diameter / 2) / (self.fuzzy_radius / 2)))
 
-    distance = get_distance(grid, sensor)
-    return distance.min(axis=0)
-
-
-def get_masks(grid, sensor):
-    """ Generate a 3D stack of fuzzy sensor masks. """
-
-    # Initialise sensor masks by distance to the sensor center
-    masks = get_distance(grid, sensor)
-
-    # Sensor radius
-    radius = sensor.diameter / 2
-    fuzz = sensor.fuzzyRadius
-
-    # Build fuzzy masks
-    Ns = masks.shape[0]
-    for s in range(Ns):
-        r = masks[s]
-        masks[s] = 0.5 * (1 - erf((r - radius) / (fuzz / 2)))
-
-    # Return stack of masks (Ns, N, N)
-    return masks
+        # Return stack of masks (Ns, N, N)
+        return masks

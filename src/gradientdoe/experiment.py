@@ -20,8 +20,7 @@ class DoeParameter(Parameter):
     material: IndexSpectrum
     pitch: float
     pitchUnit: str
-    size: float
-    sizeUnit: str
+    count: int
     maxHeight: float
     maxHeightUnit: str
 
@@ -75,6 +74,7 @@ class OptParameter(Parameter):
     weightOrtho: float
     weightEta: float
     weightCenter: float
+    jitter: bool
     ema: Ema
 
     def __init__(self, data):
@@ -110,7 +110,7 @@ class Experiment(Parameter):
         logger.debug(f"    Specimen: {name}")
 
         # Width of the calculation window
-        w = max(self.doe.size, self.sensor.horizontalCount * self.sensor.pitch,
+        w = max(self.doe.count * self.doe.pitch, self.sensor.horizontalCount * self.sensor.pitch,
                 self.sensor.verticalCount * self.sensor.pitch)
         logger.debug(f"    Calculation window: {w * 1e-3:.3f} mm")
 
@@ -128,8 +128,9 @@ class Experiment(Parameter):
         self.sensor.oversample = Ne
         logger.debug(f"    Sensor oversample: {Ne:.1f}")
 
-        z = N * p ** 2 / (2 * max(wavelengths))
-        self.setup.distance = z
+        z = self.setup.distance
+        zc = N * p ** 2 / min(wavelengths)
+        assert z >= zc, f"Propagation distance {z:.0f} µm below minimum for given grid ({zc:.0f} µm)."
         logger.debug(f"    Sensor distance: {z * 1e-3:.3f} mm")
 
         self.doe.material = IndexSpectrum(material, wavelengths)

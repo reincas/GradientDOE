@@ -10,7 +10,9 @@ import psutil
 import torch
 
 from .parameter import Parameter
-from .sensor import get_masks, next_distance
+from .propagate import AngularSpectrumMethod
+from .element import DiffractiveOpticalElement
+from .sensor import SensorArray
 
 logger = logging.getLogger("optimiser")
 
@@ -42,40 +44,6 @@ def power_spectra(setup, sensor):
 
     # Return normalized power spectra (Nk, Ni)
     return power
-
-
-def spectral_kernels(pixel_count, pixel_size, z, wavelengths):
-    """ Return the spectral ASM kernels H = exp(i * z * sqrt(k^2 - (2*pi*fx)^2 - (2*pi*fy)^2)) for the given
-    wavelengths. """
-
-    N = pixel_count
-    p = pixel_size
-    Nk = len(wavelengths)
-
-    # Spatial frequency grid mesh from -1/(2p) to 1/(2p)
-    f = np.fft.fftfreq(N, d=p)
-    fx, fy = np.meshgrid(f, f)
-    f_sq = fx ** 2 + fy ** 2
-
-    # Initialize phase transfer kernels
-    kernels = np.zeros((N, N, Nk), dtype=complex)
-
-    # Calculate kernel for each wavelength
-    for i, lam in enumerate(wavelengths):
-        # Square root argument is used to determine a mask excluding the evanescent waves (argument < 0)
-        argument = 1 - (lam ** 2 * f_sq)
-        mask = argument > 0
-
-        # Suppress evanescent waves to prevent exponential growth and numerical instability
-        k = 2 * np.pi / lam
-        phase = np.zeros_like(argument)
-        phase[mask] = k * z * np.sqrt(argument[mask])
-
-        # Append the kernel
-        kernels[:, :, i] = np.exp(1j * phase) * mask
-
-    # Return spectral ASM kernels
-    return kernels
 
 
 class Ema(Parameter):
@@ -122,9 +90,9 @@ class Ema(Parameter):
 
 
 class Optimizer:
-    def __init__(self, exp, jitter=True):
+    def __init__(self, exp):
         self.exp = exp
-        self.jitter = jitter
+        self.jitter = exp.optimizer.jitter
 
         # Initialise PyTorch environment
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -141,63 +109,41 @@ class Optimizer:
             logger.debug(f"Reserved:   {r / 1024 ** 3:.2f} GB")
             logger.debug(f"Allocated:  {a / 1024 ** 3:.2f} GB")
 
-        # Shortcuts
-        p = self.exp.grid.pitch
-        N = self.exp.grid.count
-        z = self.exp.setup.distance
+        # Initialise DOE
+        self.doe = DiffractiveOpticalElement(self.exp.setup.wavelengths, self.exp.doe.material.values, self.device)
 
-        # Spatial frequency grid exponent (used for jitter in the function propagate)
-        self.fexp = -2j * torch.pi * torch.fft.fftfreq(N, device=self.device)
+        # Initialise the sensor array
+        self.sensor = SensorArray(self.exp.sensor, self.exp.grid)
+        self.weight_distance = torch.tensor(self.sensor.next_distance ** 2, device=self.device, dtype=torch.float32)
+        self.sensor_masks = torch.tensor(self.sensor.masks, device=self.device, dtype=torch.float32)  # (Ns, N, N)
 
-        # Constant tensors require no gradients
-        self.wavelengths = torch.tensor(self.exp.setup.wavelengths,
-                                        device=self.device, dtype=torch.float32)
+        # Spectra of all specimen weighted by spectral sensor efficiency
         self.power = torch.tensor(power_spectra(self.exp.setup, self.exp.sensor),
                                   device=self.device, dtype=torch.float32)  # (Nk, Ni)
-        self.delta_n = torch.tensor(self.exp.doe.material.values,
-                                    device=self.device, dtype=torch.float32) - 1
-        self.kernels = torch.tensor(spectral_kernels(N, p, z, self.exp.setup.wavelengths),
-                                    device=self.device, dtype=torch.complex64)
-        self.sensor_masks = torch.tensor(get_masks(self.exp.grid, self.exp.sensor),
-                                         device=self.device, dtype=torch.float32)  # (Ns, N, N)
-        self.next_distance = torch.tensor(next_distance(self.exp.grid, self.exp.sensor),
-                                          device=self.device, dtype=torch.float32)  # (N, N)
-
-        #self.next_distance = self.next_distance ** 2
 
         # Maximum height of the DOE profile
         self.h_max = float(self.exp.doe.maxHeight)
+
+        # Initialise angular spectrum method
+        self.asm = AngularSpectrumMethod(self.exp.grid.count, self.exp.grid.pitch, self.exp.setup.distance,
+                                         self.exp.setup.wavelengths, self.device)
 
     def get_height(self, h_raw):
         """ Generate DOE height profile (0...h_max) from raw height tensor (soft constraint). """
 
         return torch.sigmoid(h_raw) * self.h_max
 
-    def propagate(self, height, jitter):
+    def propagate(self, height, method, count_s, jitter):
         """ Differentiable ASM propagation if plane unit input field using PyTorch. """
 
-        Nk = self.wavelengths.shape[0]
-        N = self.exp.grid.count
+        # Propagate field from DOE to sensor plane
+        Uo = self.doe.fields_from_height(height)
+        Nk = Uo.shape[2]
+        Us = torch.empty((count_s, count_s, Nk), dtype=torch.complex64, device=self.device)
+        method.propagate(Uo, Us, jitter)
 
-        # Prepare optional random spectral ramp, equal to lateral jitter of the spatial grid
-        phase_jitter = 1.0
-        if jitter:
-            shift_x = torch.rand(1, device=self.device) - 0.5
-            shift_y = torch.rand(1, device=self.device) - 0.5
-            ramp_x = torch.exp(self.fexp * shift_x)
-            ramp_y = torch.exp(self.fexp * shift_y)
-            phase_jitter = ramp_y[:, None] * ramp_x
-
-        # Initialize stack of sensor power matrices
-        H = torch.zeros((N, N, Nk), dtype=torch.float32, device=self.device)
-
-        # Calculate sensor power matrix for each wavelength
-        for k in range(Nk):
-            phase = (2 * torch.pi / self.wavelengths[k]) * self.delta_n[k] * height
-            Uo = torch.exp(1j * phase)
-            Uf = torch.fft.fft2(Uo)
-            Us = torch.fft.ifft2(Uf * phase_jitter * self.kernels[:, :, k])
-            H[:, :, k] = Us.abs() ** 2
+        # Power matrix for all wavelengths
+        H = Us.abs() ** 2
 
         # Contract to signal matrix P (Ns, Ni)
         P_sk = torch.einsum('sij,ijk->sk', self.sensor_masks, H)
@@ -231,7 +177,7 @@ class Optimizer:
             height = self.get_height(h_raw)
 
             # Power transfer matrix from DOE to sensor plane
-            H, P = self.propagate(height, self.jitter)
+            H, P = self.propagate(height, self.asm, N, self.jitter)
 
             # Singular values of the signal matrix
             S = torch.linalg.svdvals(P) / N ** 2
@@ -243,10 +189,10 @@ class Optimizer:
             l_eta = -opt.weightEta * torch.log(S + 1e-9).sum()
 
             # Loss function for centering the light on the sensors
-            l_center = opt.weightCenter * torch.mean(H.sum(dim=2) * self.next_distance) / N ** 2
+            l_center = opt.weightCenter * torch.mean(H.sum(dim=2) * self.weight_distance) / N ** 2
 
             # Total loss function with weights
-            loss = l_ortho + l_eta + l_center
+            loss = l_ortho + 0 * l_eta + l_center
 
             # Backpropagation
             loss.backward()
@@ -276,7 +222,7 @@ class Optimizer:
             height = None
         return height
 
-    def step(self, height):
+    def step(self, height, method, count_s):
         """ Calculate H, P, and Ps for a given physical height profile illuminated by unit fields. """
 
         # Prepare height tensor
@@ -286,19 +232,18 @@ class Optimizer:
             height_tensor = torch.tensor(height, device=self.device, dtype=torch.float32)
 
         # Propagate unit fields to the sensor plane
+        N = count_s
         with torch.no_grad():
-            H, P = self.propagate(height_tensor, False)
+            H, P = self.propagate(height_tensor, method, N, jitter=False)
             Ps = torch.matmul(H, self.power)
 
         # Normalise powers as numpy arrays
-        N = self.exp.grid.count
         H = H.cpu().numpy() / N ** 2
         P = P.cpu().numpy() / N ** 2
         Ps = Ps.cpu().numpy() / N ** 2
 
         # Return results
         return H, P, Ps
-
 
     def interpolate_height(self, height, target_count):
         """ Tensor-based spectral interpolation of a height profile. """
@@ -329,8 +274,7 @@ class Optimizer:
 
         # Scale and shift real part
         height = height.real * (M / N) ** 2
-        height = height.cpu().numpy()
-        height -= np.min(height)
+        height -= height.min()
 
         # Return interpolated height profile as numpy array
-        return height
+        return height.cpu().numpy()
