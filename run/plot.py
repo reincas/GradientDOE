@@ -15,6 +15,8 @@ from gradientdoe.optimizer import Optimizer
 from gradientdoe.propagate import RayleighSommerfeldMethod, AngularSpectrumMethod
 from gradientdoe.sensor import SensorArray
 
+M = 4
+
 
 def height_image(height, pitch, cmap, name, method, path):
     """ Stores a visualization of the optimized DOE height profile in microns. """
@@ -131,7 +133,6 @@ if __name__ == "__main__":
     # path = "plots/result_w{0}.png"
     # power_images(H, pitch, optimizer.sensor, cmap, names, path)
 
-    M = 4
     count_fab = count * M
     pitch_fab = pitch / M
     height_fab = optimizer.interpolate_height(height, count_fab)
