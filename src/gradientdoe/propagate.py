@@ -108,7 +108,7 @@ class AngularSpectrumMethod:
         """ Propagate source field Uo to image field Us for the given set of wavelength indices. Default is all
         wavelengths. Add a grid jitter if jitter == True. """
 
-        assert Us.shape == Uo.shape
+        assert Us.shape == Uo.shape, f"{Us.shape} != {Uo.shape}"
 
         # Default is all wavelengths
         if not k_select:

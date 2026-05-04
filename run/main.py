@@ -59,13 +59,13 @@ EXPERIMENT = {
         "verticalCount": 2,
         "pitch": 1000,
         "pitchUnit": "µm",
-        "diameter": 300,
+        "diameter": 250,
         "diameterUnit": "µm",
         "fuzzyRadius": 5,
         "fuzzyRadiusUnit": "µm",
         "skipCenter": True,
         "eta": None,
-        "minOversample": 32,
+        "minOversample": 8,
         "oversample": 0,
     },
     "optimizer": {
@@ -129,6 +129,7 @@ if __name__ == '__main__':
     for i in range(2):
         count *= 2
         pitch /= 2
+        height = optimizer.interpolate_height(height, count)
         optimizer.set_grid(count, pitch)
         height = optimizer.run(height)
 
