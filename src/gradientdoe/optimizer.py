@@ -165,8 +165,8 @@ class Optimizer:
 
     def init_height(self):
         return np.random.rand(self.count, self.count) * self.h_max
-        #x = torch.rand((self.count, self.count), device=self.device, dtype=torch.float32, requires_grad=True)
-        #return x * self.h_max
+        # x = torch.rand((self.count, self.count), device=self.device, dtype=torch.float32, requires_grad=True)
+        # return x * self.h_max
 
     def propagate(self, height, method, count_s, jitter):
         """ Differentiable ASM propagation if plane unit input field using PyTorch. """
@@ -222,7 +222,8 @@ class Optimizer:
             S = torch.linalg.svdvals(P_norm)
 
             # Loss function for orthogonal solution
-            l_ortho = opt.weightOrtho * (S[0] / (S[-1] + 1e-9)) - 1
+            S_rel = S[0] / (S[-1] + 1e-9)
+            l_ortho = opt.weightOrtho * (S_rel - 1) ** 2
 
             # Power efficiency
             P_total = (P.mean(dim=1)).sum() / self.count ** 2
@@ -242,17 +243,17 @@ class Optimizer:
             # EMA smoothing step
             if ema.step(loss.item()):
                 best_height = height_clipped.detach().cpu().numpy()
-                S = ", ".join([f"{x:5.3f}" for x in S])
-                log = f"[{self.count}] {i:5d} | {ema.counter:3d} | {l_ortho.item():7.2f} | {l_eta.item():7.2f} | {(l_center).item():7.2f} || {S} | {P_total:5.3f} | {mean_distance:5.3f}"
+                log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} | {(l_center).item():7.2f} || {S_rel:7.3f} | {P_total:7.3f} | {mean_distance:7.3f}"
 
             # Logging
             if ema.has_finished or time.time() - t > 2:
                 t = time.time()
                 if log:
-                    logger.debug(log)
+                    logger.debug(f"[{self.count}] {i:5d} | {ema.counter:3d} | {log}")
 
                 if ema.has_finished:
-                    logger.debug(f"Converged [{self.count}]: Improvement < {ema.threshold * 100}% for {ema.patience} iterations.")
+                    logger.debug(
+                        f"Converged [{self.count}]: Improvement < {ema.threshold * 100}% for {ema.patience} iterations.")
                     break
 
         if ema.has_finished:
