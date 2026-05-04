@@ -75,7 +75,7 @@ EXPERIMENT = {
         "weightOrtho": 2.0,
         "weightEta": 10.0,
         "weightCenter": 1.0,
-        "jitter": True,
+        "jitter": False,
         "ema": {
             "patience": 200,
             "threshold": 1e-3,

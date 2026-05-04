@@ -246,7 +246,7 @@ class Optimizer:
                 t = time.time()
                 S = ", ".join([f"{x:5.3f}" for x in S])
                 logger.debug(
-                    f"[{self.count}] {i:5d} | {ema.counter:3d} | {l_ortho.item():6.2f} | {l_eta.item():6.2f} | {(l_center).item():6.2f} | {S}")
+                    f"[{self.count}] {i:5d} | {ema.counter:3d} | {l_ortho.item():6.2f} | {l_eta.item():6.2f} | {(l_center).item():6.2f} | {S} | {P_total:5.3f}")
 
                 if ema.has_finished:
                     logger.debug(f"Converged [{self.count}]: Improvement < {ema.threshold * 100}% for {ema.patience} iterations.")
