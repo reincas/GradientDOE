@@ -34,6 +34,7 @@ class GridParameter(Parameter):
     pitch: float
     pitchUnit: str
     count: int
+    countFinal: int
 
 
 class SetupParameter(Parameter):
@@ -83,6 +84,13 @@ class OptParameter(Parameter):
             self.ema = Ema(self.ema)
 
 
+def next_power_of_2(x):
+    if x <= 1:
+        return 1
+    n = math.ceil(x)
+    return 1 << (n - 1).bit_length()
+
+
 class Experiment(Parameter):
     doe: DoeParameter
     grid: GridParameter
@@ -110,26 +118,27 @@ class Experiment(Parameter):
         logger.debug(f"    Specimen: {name}")
 
         # Width of the calculation window
-        w = max(self.doe.count * self.doe.pitch, self.sensor.horizontalCount * self.sensor.pitch,
-                self.sensor.verticalCount * self.sensor.pitch)
-        logger.debug(f"    Calculation window: {w * 1e-3:.3f} mm")
+        sensor_size = self.sensor.horizontalCount * self.sensor.pitch
+        count_final = next_power_of_2(self.doe.count)
+        pitch_final = self.doe.pitch
+        while count_final < sensor_size / pitch_final:
+            count_final *= 2
+        logger.debug(f"    Calculation window: {count_final * pitch_final * 1e-3:.3f} mm")
 
-        # Determine power-of-2 pixel count based on minimum given
-        N = self.sensor.minOversample * w / self.sensor.diameter
-        N = 2 ** math.ceil(math.log2(N))
-        self.grid.count = N
-        logger.debug(f"    Pixel count: {N}")
-
-        p = w / N
-        self.grid.pitch = p
-        logger.debug(f"    Pixel size: {p:.2f} µm")
-
-        Ne = N * self.sensor.diameter / w
-        self.sensor.oversample = Ne
-        logger.debug(f"    Sensor oversample: {Ne:.1f}")
+        # Initial pixel count
+        count_initial = count_final
+        pitch_initial = pitch_final
+        while self.sensor.diameter / pitch_initial > self.sensor.minOversample:
+            count_initial //= 2
+            pitch_initial *= 2
+        self.grid.pitch = pitch_initial
+        self.grid.count = count_initial
+        self.grid.countFinal = count_final
+        logger.debug(f"    Initial pixel count / pitch: {count_initial} / {pitch_initial:.2f} µm")
+        logger.debug(f"    Final pixel count / pitch: {count_final} / {pitch_final:.2f} µm")
 
         z = self.setup.distance
-        zc = N * p ** 2 / min(wavelengths)
+        zc = count_initial * pitch_initial ** 2 / min(wavelengths)
         assert z >= zc, f"Propagation distance {z:.0f} µm below minimum for given grid ({zc:.0f} µm)."
         logger.debug(f"    Sensor distance: {z * 1e-3:.3f} mm")
 

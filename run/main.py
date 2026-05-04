@@ -36,9 +36,9 @@ MATERIALS = {
 EXPERIMENT = {
     "doe": {
         "material": None,
-        "pitch": 0.25,
+        "pitch": 2.0,
         "pitchUnit": "µm",
-        "count": 8192,
+        "count": 1024,
         "maxHeight": 5,
         "maxHeightUnit": "µm",
     },
@@ -46,6 +46,7 @@ EXPERIMENT = {
         "pitch": 0,
         "pitchUnit": "µm",
         "count": 0,
+        "countFinal": 0,
     },
     "setup": {
         "wavelengths": [],
@@ -126,7 +127,7 @@ if __name__ == '__main__':
     optimizer = Optimizer(exp)
     height = optimizer.init_height()
     height = optimizer.run(height)
-    for i in range(2):
+    while count < exp.grid.countFinal:
         count *= 2
         pitch /= 2
         height = optimizer.interpolate_height(height, count)

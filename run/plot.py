@@ -124,6 +124,10 @@ if __name__ == "__main__":
 
     AP_list = []
 
+    M = height.shape[0] // count
+    count *= M
+    pitch /= M
+    optimizer.set_grid(count, pitch)
     H, P, Ps = optimizer.step(height, optimizer.asm, count)
     AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
     power_images(Ps, pitch, optimizer.sensor, cmap, names, "opt", path)
