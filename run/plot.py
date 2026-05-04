@@ -173,6 +173,9 @@ if __name__ == "__main__":
     else:
         np.set_printoptions(formatter=cast(Any, {'float': '{: .3f}'.format}), linewidth=120)
         print(P.T)
+        P_norm = P - P.mean(axis=0, keepdims=True)
+        print(P_norm.T)
+
 
     path = "plots/result.png"
     store_height(height, 0.0001, path)

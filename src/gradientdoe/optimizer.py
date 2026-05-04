@@ -277,9 +277,9 @@ class Optimizer:
             l_ortho = opt.weightOrtho * (S_rel - 1) ** 2
 
             # Power efficiency (P: dim=0 is sensor dim=1 is specimen)
-            P_total = (P.mean(dim=1)).sum() / self.count ** 2
-            #P_tot = torch.sqrt((P_norm.mean(dim=1) ** 2).sum()) / self.count ** 2
-            l_eta = opt.weightEta / P_total
+            #P_total = (P.mean(dim=1)).sum() / self.count ** 2
+            P_tot = torch.sqrt((P_norm.mean(dim=1) ** 2).sum()) / self.count ** 2
+            l_eta = opt.weightEta / P_tot
 
             # Loss function for centering the light on the sensors
             mean_distance = torch.sum(H.sum(dim=2) * self.weight_distance) / H.sum()
