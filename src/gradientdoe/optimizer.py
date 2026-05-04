@@ -205,6 +205,7 @@ class Optimizer:
         ema.start()
 
         t = time.time()
+        is_best = True
         for i in range(opt.maxLoops):
 
             # Reset gradients
@@ -241,13 +242,16 @@ class Optimizer:
             # EMA smoothing step
             if ema.step(loss.item()):
                 best_height = height_clipped.detach().cpu().numpy()
+                is_best = True
 
             # Logging
-            if ema.has_finished or time.time() - t > 2:
+            if is_best or ema.has_finished or time.time() - t > 2:
                 t = time.time()
                 S = ", ".join([f"{x:5.3f}" for x in S])
+                best = "*" if is_best else " "
                 logger.debug(
-                    f"[{self.count}] {i:5d} | {ema.counter:3d} | {l_ortho.item():7.2f} | {l_eta.item():7.2f} | {(l_center).item():7.2f} || {S} | {P_total:5.3f} | {mean_distance:5.3f}")
+                    f"[{self.count}] {i:5d} | {ema.counter:3d} | {l_ortho.item():7.2f} | {l_eta.item():7.2f} | {(l_center).item():7.2f} || {S} | {P_total:5.3f} | {mean_distance:5.3f} {best}")
+                is_best = False
 
                 if ema.has_finished:
                     logger.debug(f"Converged [{self.count}]: Improvement < {ema.threshold * 100}% for {ema.patience} iterations.")
