@@ -276,7 +276,7 @@ class Optimizer:
 
             # Loss function for orthogonal solution
             S_rel = S[0] / (S[-1] + 1e-9)
-            l_ortho = opt.weightOrtho * (S_rel - 1) ** 2
+            l_ortho = opt.weightOrtho * (S_rel - 1)
 
             # Power efficiency
             P_total = (P.mean(dim=1)).sum() / self.count ** 2
