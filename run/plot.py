@@ -47,7 +47,7 @@ def height_image(height, pitch, cmap, name, method, path):
     print(f"Stored height profile image: {filepath}")
 
 
-def power_images(Ps, pitch, sensor, cmap, names, method, path):
+def power_images(Ps, P, pitch, sensor, cmap, names, method, path):
     """ Stores sensor plane power images. """
 
     # Window edges
@@ -57,15 +57,21 @@ def power_images(Ps, pitch, sensor, cmap, names, method, path):
     # Sensor locations
     radius = sensor.diameter / 2
     centers = sensor.centers
-    Ns = len(centers)
+    Ns = sensor.num_sensors
 
-    # Global normalisation over all specimen
+    # Normalise power
     Ps /= np.max(Ps)
+
+    # Prepare figure
     Ni = Ps.shape[2]
+    fig, axes = plt.subplots(1, Ni, figsize=(5 * Ni, 5), constrained_layout=True)
+    fig.suptitle("Optical power distribution in the sensor plane")
+    if Ni == 1:
+        axes = [axes]
 
     # Plot power image of each specimen
     for i in range(Ni):
-        fig, ax = plt.subplots(figsize=(8, 8))
+        ax = axes[i]
 
         # Plot image figure with sensor outlines
         im = ax.imshow(Ps[:, :, i], cmap=cmap, vmin=0, vmax=1.0,
@@ -74,19 +80,22 @@ def power_images(Ps, pitch, sensor, cmap, names, method, path):
             xc, yc = centers[s]
             circle = patches.Circle((xc, yc), radius, linewidth=1, edgecolor='red', facecolor='none', alpha=0.7)
             ax.add_patch(circle)
+            if P is not None:
+                ax.text(xc, yc - radius - (radius * 0.3), f"{P[s, i]*100:.1f} %",
+                        color='white', ha='center', va='top', fontsize=8, fontweight='normal')
 
         # Labels and titles
-        ax.set_title(f"Sensor Power Image ({names[i]})")
+        ax.set_title(f"Specimen: {names[i]}")
         ax.set_xlabel("x / µm")
         ax.set_ylabel("y / µm")
-        plt.colorbar(im, ax=ax, label='Power (relative)')
+        if i == Ni - 1:
+            plt.colorbar(im, ax=ax, label='Power (relative)')
 
-        # Save image figure
-        assert "{0}" in path
-        filepath = path.format(method, f"{i:02d}")
-        plt.savefig(filepath, bbox_inches='tight', dpi=150)
-        plt.close(fig)
-        print(f"Stored sensor power image: {filepath}")
+    # Save image figure
+    filepath = path.format(method, "all")
+    plt.savefig(filepath, bbox_inches='tight', dpi=150)
+    plt.close(fig)
+    print(f"Stored sensor power image: {filepath}")
 
 
 def store_height(height, step_size, path):
@@ -111,6 +120,10 @@ if __name__ == "__main__":
 
     pitch = exp.grid.pitch
     count = exp.grid.count
+    M = height.shape[0] // count
+    count *= M
+    pitch /= M
+
     print(f"Grid pitch: {exp.grid.pitch:.1f} µm")
     print(f"Grid count: {exp.grid.count}")
     print(f"Distance: {exp.setup.distance:.0f} µm")
@@ -123,16 +136,13 @@ if __name__ == "__main__":
 
     AP_list = []
 
-    M = height.shape[0] // count
-    count *= M
-    pitch /= M
     optimizer.set_grid(count, pitch)
     H, P, Ps = optimizer.step(height, optimizer.asm, count)
     AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
-    power_images(Ps, pitch, optimizer.sensor, cmap, names, "opt", path)
+    power_images(Ps, P, pitch, optimizer.sensor, cmap, names, "opt", path)
 
     # names = [f"{lam*1000:.3f} nm" for lam in optimizer.doe.wavelengths]
-    # power_images(H, pitch, optimizer.sensor, cmap, names, "lam", path)
+    # power_images(H, None, pitch, optimizer.sensor, cmap, names, "lam", path)
 
     height_image(height, pitch, cmap, name, "opt", path)
 
@@ -150,12 +160,12 @@ if __name__ == "__main__":
                                           optimizer.device)
             H, P, Ps = optimizer.step(height_fab, rs, count_out)
             AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
-            power_images(Ps, pitch_out, optimizer.sensor, cmap, names, "rs", path)
+            power_images(Ps, P, pitch_out, optimizer.sensor, cmap, names, "rs", path)
 
         optimizer.set_grid(count_fab, pitch_fab)
         H, P, Ps = optimizer.step(height_fab, optimizer.asm, count_fab)
         AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
-        power_images(Ps, pitch_fab, optimizer.sensor, cmap, names, "fab", path)
+        power_images(Ps, P, pitch_fab, optimizer.sensor, cmap, names, "fab", path)
 
         np.set_printoptions(formatter=cast(Any, {'float': '{: .3f}'.format}), linewidth=120)
         Ni = len(exp.setup.sources)
@@ -177,14 +187,14 @@ if __name__ == "__main__":
         P_norm = P - P.mean(axis=0, keepdims=True)
         print(P_norm.T)
 
-        masks = optimizer.sensor.masks # (Ns, N, N)
-        power = optimizer.power.detach().cpu().numpy() # (Nk, Nc)
-        print(count)
-        print(power.sum(axis=0))
-        print(np.einsum("sij->s", masks) / count ** 2)
-        print(np.einsum("ijk->k", H))
-        print(np.einsum("sij,ijk->sk", masks, H))
-        print(np.einsum("sij,ijk,kc->sc", masks, H, power))
+        # masks = optimizer.sensor.masks # (Ns, N, N)
+        # power = optimizer.power.detach().cpu().numpy() # (Nk, Nc)
+        # print(count)
+        # print(power.sum(axis=0))
+        # print(np.einsum("sij->s", masks) / count ** 2)
+        # print(np.einsum("ijk->k", H))
+        # print(np.einsum("sij,ijk->sk", masks, H))
+        # print(np.einsum("sij,ijk,kc->sc", masks, H, power))
 
     path = "plots/result.png"
     store_height(height, 0.0001, path)
