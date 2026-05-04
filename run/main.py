@@ -65,7 +65,7 @@ EXPERIMENT = {
         "fuzzyRadiusUnit": "µm",
         "skipCenter": True,
         "eta": None,
-        "minOversample": 32,
+        "minOversample": 16,
         "oversample": 0,
     },
     "optimizer": {
@@ -75,7 +75,7 @@ EXPERIMENT = {
         "weightCenter": 0.1,
         "jitter": True,
         "ema": {
-            "patience": 1000,
+            "patience": 200,
             "threshold": 1e-3,
             "alpha": 0.05,
             "loss": None,

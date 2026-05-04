@@ -222,11 +222,15 @@ class Optimizer:
             # Loss function for orthogonal solution
             l_ortho = opt.weightOrtho * ((S[0] / (S[-1] + 1e-9)) - 1) ** 2
 
+            # Power efficiency
+            P_total = (P.mean(dim=1)).sum() / self.count ** 2
+            l_eta = 5 * (1 - P_total) ** 2
+
             # Loss function for centering the light on the sensors
             l_center = opt.weightCenter * torch.mean(H.sum(dim=2) * self.weight_distance) / self.count ** 2
 
             # Total loss function with weights
-            loss = l_ortho + l_center
+            loss = l_ortho + l_eta + l_center
 
             # Backpropagation
             loss.backward()
@@ -241,7 +245,7 @@ class Optimizer:
                 t = time.time()
                 S = ", ".join([f"{x:5.3f}" for x in S])
                 logger.debug(
-                    f"[{self.count}] {i:5d} | {ema.counter:3d} | {l_ortho.item():6.2f} | {(l_center).item():6.2f} | {S}")
+                    f"[{self.count}] {i:5d} | {ema.counter:3d} | {l_ortho.item():6.2f} | {l_eta.item():6.2f} | {(l_center).item():6.2f} | {S}")
 
                 if ema.has_finished:
                     logger.debug(f"Converged [{self.count}]: No improvement > {ema.threshold * 100}% for {ema.patience} iterations.")
