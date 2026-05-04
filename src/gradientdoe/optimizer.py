@@ -227,7 +227,7 @@ class Optimizer:
             l_eta = opt.weightEta * (1 - P_total) ** 2
 
             # Loss function for centering the light on the sensors
-            l_center = opt.weightCenter * torch.mean(H.sum(dim=2) * self.weight_distance) / self.count
+            l_center = opt.weightCenter * torch.mean(H.sum(dim=2) * self.weight_distance) / self.exp.sensor.diameter
 
             # Total loss function with weights
             loss = l_ortho + l_eta + l_center
