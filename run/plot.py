@@ -13,6 +13,7 @@ from gradientdoe.experiment import Experiment
 from gradientdoe.optimizer import Optimizer
 from gradientdoe.propagate import RayleighSommerfeldMethod, AngularSpectrumMethod
 
+OPT = 0
 M = 2
 RS = 0
 
@@ -132,43 +133,46 @@ if __name__ == "__main__":
     AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
     power_images(Ps, pitch, optimizer.sensor, cmap, names, "opt", path)
 
-    # names = [f"{lam*1000:.3f} nm" for lam in optimizer.doe.wavelengths]
-    # path = "plots/result_w{0}.png"
-    # power_images(H, pitch, optimizer.sensor, cmap, names, path)
+    names = [f"{lam*1000:.3f} nm" for lam in optimizer.doe.wavelengths]
+    power_images(H, pitch, optimizer.sensor, cmap, names, "lam", path)
 
-    count_fab = count * M
-    pitch_fab = pitch / M
-    height_fab = optimizer.interpolate_height(height, count_fab)
-    height_image(height_fab, pitch_fab, cmap, name, "fab", path)
+    if OPT:
+        count_fab = count * M
+        pitch_fab = pitch / M
+        height_fab = optimizer.interpolate_height(height, count_fab)
+        height_image(height_fab, pitch_fab, cmap, name, "fab", path)
 
-    if RS:
-        count_out = count_fab
-        pitch_out = pitch_fab
-        optimizer.set_grid(count_out, pitch_out)
-        rs = RayleighSommerfeldMethod(pitch_fab, pitch_out, exp.setup.distance, optimizer.doe.wavelengths, optimizer.device)
-        H, P, Ps = optimizer.step(height_fab, rs, count_out)
+        if RS:
+            count_out = count_fab
+            pitch_out = pitch_fab
+            optimizer.set_grid(count_out, pitch_out)
+            rs = RayleighSommerfeldMethod(pitch_fab, pitch_out, exp.setup.distance, optimizer.doe.wavelengths, optimizer.device)
+            H, P, Ps = optimizer.step(height_fab, rs, count_out)
+            AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
+            power_images(Ps, pitch_out, optimizer.sensor, cmap, names, "rs", path)
+
+        optimizer.set_grid(count_fab, pitch_fab)
+        H, P, Ps = optimizer.step(height_fab, optimizer.asm, count_fab)
         AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
-        power_images(Ps, pitch_out, optimizer.sensor, cmap, names, "rs", path)
+        power_images(Ps, pitch_fab, optimizer.sensor, cmap, names, "fab", path)
 
-    optimizer.set_grid(count_fab, pitch_fab)
-    H, P, Ps = optimizer.step(height_fab, optimizer.asm, count_fab)
-    AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
-    power_images(Ps, pitch_fab, optimizer.sensor, cmap, names, "fab", path)
-
-    np.set_printoptions(formatter=cast(Any, {'float': '{: .3f}'.format}), linewidth=120)
-    Ni = len(exp.setup.sources)
-    Ns = len(optimizer.sensor.center)
-    for i in range(Ni):
-        P = np.empty((len(AP_list), Ns), dtype=float)
-        for j, (_, M) in enumerate(AP_list):
-            P[j, :] = M[:, i] #/ sum(M[:, i])
-        print(f"Specimen {i}:")
-        print(P)
-    AP = np.empty((Ni, len(AP_list) * Ni), dtype=float)
-    for j, (A, P) in enumerate(AP_list):
-        AP[:, j * 3:j * 3 + Ni] = A @ P
-    print("A @ P:")
-    print(AP)
+        np.set_printoptions(formatter=cast(Any, {'float': '{: .3f}'.format}), linewidth=120)
+        Ni = len(exp.setup.sources)
+        Ns = len(optimizer.sensor.center)
+        for i in range(Ni):
+            P = np.empty((len(AP_list), Ns), dtype=float)
+            for j, (_, M) in enumerate(AP_list):
+                P[j, :] = M[:, i] #/ sum(M[:, i])
+            print(f"Specimen {i}:")
+            print(P)
+        AP = np.empty((Ni, len(AP_list) * Ni), dtype=float)
+        for j, (A, P) in enumerate(AP_list):
+            AP[:, j * 3:j * 3 + Ni] = A @ P
+        print("A @ P:")
+        print(AP)
+    else:
+        np.set_printoptions(formatter=cast(Any, {'float': '{: .3f}'.format}), linewidth=120)
+        print(P.T)
 
     path = "plots/result.png"
-    store_height(height_fab, 0.0002, path)
+    store_height(height, 0.0002, path)
