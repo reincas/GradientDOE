@@ -191,7 +191,6 @@ class Optimizer:
         # Initialize optimiser target
         assert isinstance(height, np.ndarray)
         best_height = height.copy()
-        last_height = np.zeros_like(height)
         height = torch.tensor(height, device=self.device, dtype=torch.float32, requires_grad=True)
 
         # Initialize optimiser
@@ -235,19 +234,14 @@ class Optimizer:
                 best_height = height_clipped.detach().cpu().numpy()
 
             # Logging
-            if i % 10 == 0:
-                dh = last_height - height_clipped.detach().cpu().numpy()
-                mean = np.mean(dh) * 1e6
-                std = np.std(dh) * 1e6
+            if i % 100 == 0:
                 S = ", ".join([f"{x:5.3f}" for x in S.detach().cpu().numpy()])
                 logger.debug(
-                    f"[{self.count}] {i:5d} | {ema.counter:3d} | {l_ortho.item():6.2f} | {(l_center).item():6.2f} | {mean:6.2f} | {std:6.2f} | {S}")
+                    f"[{self.count}] {i:5d} | {ema.counter:3d} | {l_ortho.item():6.2f} | {(l_center).item():6.2f} | {S}")
 
             if ema.has_finished:
                 logger.debug(f"Converged [{self.count}]: No improvement > {ema.threshold * 100}% for {ema.patience} iterations.")
                 break
-
-            last_height = height_clipped.detach().cpu().numpy()
 
         if ema.has_finished:
             height = best_height
