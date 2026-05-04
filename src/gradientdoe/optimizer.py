@@ -5,6 +5,8 @@
 ##########################################################################
 
 import logging
+import time
+
 import numpy as np
 import psutil
 import torch
@@ -201,6 +203,7 @@ class Optimizer:
         ema = self.exp.optimizer.ema
         ema.start()
 
+        t = time.time()
         for i in range(opt.maxLoops):
 
             # Reset gradients
@@ -234,14 +237,15 @@ class Optimizer:
                 best_height = height_clipped.detach().cpu().numpy()
 
             # Logging
-            if i % 100 == 0:
-                S = ", ".join([f"{x:5.3f}" for x in S.detach().cpu().numpy()])
+            if ema.has_finished or time.time() - t > 2:
+                t = time.time()
+                S = ", ".join([f"{x:5.3f}" for x in S])
                 logger.debug(
                     f"[{self.count}] {i:5d} | {ema.counter:3d} | {l_ortho.item():6.2f} | {(l_center).item():6.2f} | {S}")
 
-            if ema.has_finished:
-                logger.debug(f"Converged [{self.count}]: No improvement > {ema.threshold * 100}% for {ema.patience} iterations.")
-                break
+                if ema.has_finished:
+                    logger.debug(f"Converged [{self.count}]: No improvement > {ema.threshold * 100}% for {ema.patience} iterations.")
+                    break
 
         if ema.has_finished:
             height = best_height

@@ -113,8 +113,8 @@ if __name__ == "__main__":
     print(f"Grid count: {exp.grid.count}")
     print(f"Distance: {exp.setup.distance:.0f} µm")
 
-    # cmap = "viridis"
-    cmap = "inferno"
+    cmap = "viridis"
+    #cmap = "inferno"
     path = "plots/result_{0}_{1}.png"
     name = exp.doe.material.model
     names = [x.model for x in exp.setup.sources]
