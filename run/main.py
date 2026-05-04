@@ -72,9 +72,9 @@ EXPERIMENT = {
     "optimizer": {
         "maxLoops": 1000000,
         "learningRate": 0.02,
-        "weightOrtho": 1.0,
-        "weightEta": 50.0,
-        "weightCenter": 200.0,
+        "weightOrtho": 2.0,
+        "weightEta": 10.0,
+        "weightCenter": 50.0,
         "jitter": True,
         "ema": {
             "patience": 200,
