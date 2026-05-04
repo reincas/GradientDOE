@@ -277,8 +277,8 @@ class Optimizer:
             l_ortho = opt.weightOrtho * (S_rel - 1) ** 2
 
             # Power efficiency (P: dim=0 is sensor dim=1 is specimen)
-            #P_total = (P.mean(dim=1)).sum() / self.count ** 2
-            P_tot = torch.sqrt((P_norm.mean(dim=1) ** 2).sum()) / self.count ** 2
+            P_tot = P - 0.5 * P.mean(dim=0, keepdim=True)
+            P_tot = torch.sqrt((P_tot.mean(dim=1) ** 2).sum()) / self.count ** 2
             l_eta = opt.weightEta / P_tot
 
             # Loss function for centering the light on the sensors
@@ -295,6 +295,7 @@ class Optimizer:
             # EMA smoothing step
             if ema.step(loss.item()):
                 best_height = height_clipped.detach().cpu().numpy()
+                P_total = (P.mean(dim=1)).sum() / self.count ** 2
                 log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} | {(l_center).item():7.2f} || {S_rel:7.3f} | {P_total:7.3f} | {mean_distance:7.3f}"
 
             # Logging
