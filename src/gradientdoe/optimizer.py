@@ -279,7 +279,7 @@ class Optimizer:
             l_ortho = opt.weightOrtho * (S_rel - 1)
 
             # Power efficiency
-            P_total = (P.mean(dim=1)).sum() / self.count ** 2
+            P_total = (P_norm.mean(dim=1)).sum() / self.count ** 2
             l_eta = opt.weightEta * (1 - P_total) ** 2
 
             # Loss function for centering the light on the sensors
