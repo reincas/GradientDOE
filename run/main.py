@@ -39,7 +39,7 @@ EXPERIMENT = {
         "pitch": 2.0,
         "pitchUnit": "µm",
         "count": 1024,
-        "maxHeight": 5,
+        "maxHeight": 6,
         "maxHeightUnit": "µm",
     },
     "grid": {
