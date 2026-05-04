@@ -24,6 +24,23 @@ def memory(device):
     return psutil.virtual_memory().total
 
 
+def soft_clip(x, xmax, xfuzz):
+    """ Clip the values of x to the range 0..xmax smoothly using a circular arc transition with radius xfuzz."""
+
+    assert xmax > 0
+    assert xfuzz > 0
+    assert xmax > 2 * xfuzz
+
+    def soft_edge(val, fuzz):
+        arc = torch.sqrt(torch.clamp(2 * val * fuzz - val ** 2, min=1e-8))
+        val = torch.where(val < 0, torch.zeros_like(val), val)
+        return torch.where(val < fuzz, arc, val)
+
+    x = xmax - soft_edge(xmax - x, xfuzz)
+    x = soft_edge(x, xfuzz)
+    return x
+
+
 def power_spectra(setup, sensor):
     """ Return the normalized power spectra of all specimen weighted by the spectral sensor efficiency. """
 
@@ -90,6 +107,9 @@ class Ema(Parameter):
 
 
 class Optimizer:
+    count: int
+    pitch: float
+    sensor: SensorArray
     weight_distance: torch.Tensor
     sensor_masks: torch.Tensor
     asm: AngularSpectrumMethod
@@ -128,6 +148,8 @@ class Optimizer:
         self.h_max = float(self.exp.doe.maxHeight)
 
     def set_grid(self, count, pitch):
+        self.count = count
+        self.pitch = pitch
         self.sensor.set_grid(count, pitch)
         self.weight_distance = torch.tensor(self.sensor.next_distance ** 2, device=self.device, dtype=torch.float32)
         self.sensor_masks = torch.tensor(self.sensor.masks, device=self.device, dtype=torch.float32)  # (Ns, N, N)
@@ -138,6 +160,11 @@ class Optimizer:
 
         return torch.sigmoid(h_raw) * self.h_max
 
+    def init_height(self):
+        return np.random.rand(self.count, self.count) * self.h_max
+        #x = torch.rand((self.count, self.count), device=self.device, dtype=torch.float32, requires_grad=True)
+        #return x * self.h_max
+
     def propagate(self, height, method, count_s, jitter):
         """ Differentiable ASM propagation if plane unit input field using PyTorch. """
 
@@ -146,8 +173,8 @@ class Optimizer:
         Nk = Uo.shape[2]
         Us = torch.empty((count_s, count_s, Nk), dtype=torch.complex64, device=self.device)
         method.propagate(Uo, Us, jitter)
-        print(f"Power in:  {torch.sum(torch.abs(Uo) ** 2) / Uo.numel()}", Uo.shape)
-        print(f"Power out: {torch.sum(torch.abs(Us) ** 2) / Us.numel()}", Us.shape)
+        # print(f"Power in:  {torch.sum(torch.abs(Uo) ** 2) / Uo.numel()}", Uo.shape)
+        # print(f"Power out: {torch.sum(torch.abs(Us) ** 2) / Us.numel()}", Us.shape)
 
         # Power matrix for all wavelengths
         H = Us.abs() ** 2
@@ -158,18 +185,18 @@ class Optimizer:
 
         return H, P
 
-    def run(self):
+    def run(self, height):
         logger.debug("Starting Optimization")
 
-        N = self.exp.grid.count
-
-        # Random initialisation of raw height tensor stretching from -inf to +inf
-        h_raw = torch.randn((N, N), device=self.device, dtype=torch.float32, requires_grad=True)
-        best_raw = h_raw.detach().clone()
+        # Initialize optimiser target
+        assert isinstance(height, np.ndarray)
+        best_height = height.copy()
+        last_height = np.zeros_like(height)
+        height = torch.tensor(height, device=self.device, dtype=torch.float32, requires_grad=True)
 
         # Initialize optimiser
         opt = self.exp.optimizer
-        optimizer = torch.optim.Adam([h_raw], lr=opt.learningRate)
+        optimizer = torch.optim.Adam([height], lr=opt.learningRate)
 
         # Initialize EMA smoothing (exponential moving average)
         ema = self.exp.optimizer.ema
@@ -180,26 +207,24 @@ class Optimizer:
             # Reset gradients
             optimizer.zero_grad()
 
-            # Determine DOE height profile from raw height tensor
-            height = self.get_height(h_raw)
+            # Clip height profile with smoothed corners
+            height_clipped = soft_clip(height, self.h_max, 0.01 * self.h_max)
 
             # Power transfer matrix from DOE to sensor plane
-            H, P = self.propagate(height, self.asm, N, self.jitter)
+            H, P = self.propagate(height_clipped, self.asm, self.count, self.jitter)
 
             # Singular values of the signal matrix
-            S = torch.linalg.svdvals(P) / N ** 2
+            P_norm = P / (P.norm(p=2, dim=0, keepdim=True) + 1e-8)
+            S = torch.linalg.svdvals(P_norm)# / self.count ** 2
 
             # Loss function for orthogonal solution
-            l_ortho = opt.weightOrtho * S[0] / (S[-1] + 1e-9)
-
-            # Loss function for maximized power efficiency
-            l_eta = -opt.weightEta * torch.log(S + 1e-9).sum()
+            l_ortho = opt.weightOrtho * (S[0] / (S[-1] + 1e-9)) ** 2
 
             # Loss function for centering the light on the sensors
-            l_center = opt.weightCenter * torch.mean(H.sum(dim=2) * self.weight_distance) / N ** 2
+            l_center = opt.weightCenter * torch.mean(H.sum(dim=2) * self.weight_distance) / self.count ** 2
 
             # Total loss function with weights
-            loss = l_ortho + 0 * l_eta + l_center
+            loss = l_ortho + l_center
 
             # Backpropagation
             loss.backward()
@@ -207,24 +232,25 @@ class Optimizer:
 
             # EMA smoothing step
             if ema.step(loss.item()):
-                best_raw = h_raw.detach().clone()
+                best_height = height_clipped.detach().cpu().numpy()
 
             # Logging
-            if i % 1 == 0:
-                max_h = height.max().item() - height.min().item()
-                Psum = (torch.sum(P, dim=0) / N ** 2).tolist()
-                Psum = ", ".join([f"{p:.3f}" for p in Psum])
+            if i % 10 == 0:
+                dh = last_height - height_clipped.detach().cpu().numpy()
+                mean = np.mean(dh) * 1e6
+                std = np.std(dh) * 1e6
+                S = ", ".join([f"{x:5.3f}" for x in S.detach().cpu().numpy()])
                 logger.debug(
-                    f"{i:5d} | {ema.counter:3d} | {l_ortho.item():6.2f} | {(l_eta).item():6.2f} | {(l_center).item():6.2f} | {max_h:6.2f} µm | {Psum}")
+                    f"[{self.count}] {i:5d} | {ema.counter:3d} | {l_ortho.item():6.2f} | {(l_center).item():6.2f} | {mean:6.2f} | {std:6.2f} | {S}")
 
             if ema.has_finished:
-                logger.debug(f"Converged: No improvement > {ema.threshold * 100}% for {ema.patience} iterations.")
+                logger.debug(f"Converged [{self.count}]: No improvement > {ema.threshold * 100}% for {ema.patience} iterations.")
                 break
 
+            last_height = height_clipped.detach().cpu().numpy()
+
         if ema.has_finished:
-            height = self.get_height(best_raw)
-            height = height.detach().cpu().numpy()
-            height -= np.min(height)
+            height = best_height
         else:
             height = None
         return height

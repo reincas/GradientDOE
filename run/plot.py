@@ -4,7 +4,6 @@
 # This program is free software under the terms of the MIT license.      #
 ##########################################################################
 
-import torch
 from matplotlib import pyplot as plt, patches as patches
 import numpy as np
 from PIL import Image
@@ -13,10 +12,9 @@ from typing import cast, Any
 from gradientdoe.experiment import Experiment
 from gradientdoe.optimizer import Optimizer
 from gradientdoe.propagate import RayleighSommerfeldMethod, AngularSpectrumMethod
-from gradientdoe.sensor import SensorArray
 
 M = 2
-RS = 1
+RS = 0
 
 
 def height_image(height, pitch, cmap, name, method, path):

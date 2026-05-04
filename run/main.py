@@ -65,19 +65,18 @@ EXPERIMENT = {
         "fuzzyRadiusUnit": "µm",
         "skipCenter": True,
         "eta": None,
-        "minOversample": 15,
+        "minOversample": 32,
         "oversample": 0,
     },
     "optimizer": {
         "maxLoops": 10000,
-        "learningRate": 0.05,
+        "learningRate": 0.001,
         "weightOrtho": 1.0,
-        "weightEta": 1.0,
-        "weightCenter": 1.0,
-        "jitter": True,
+        "weightCenter": 0.5,
+        "jitter": False,
         "ema": {
             "patience": 100,
-            "threshold": 1e-2,
+            "threshold": 1e-3,
             "alpha": 0.1,
             "loss": None,
             "bestLoss": None,
@@ -122,7 +121,8 @@ if __name__ == '__main__':
 
     # Determine suitable height profile
     optimizer = Optimizer(exp)
-    height = optimizer.run()
+    height = optimizer.init_height()
+    height = optimizer.run(height)
 
     # Store result
     if height is not None:

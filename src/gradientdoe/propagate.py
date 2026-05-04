@@ -151,20 +151,18 @@ def rayleigh_sommerfeld(k, z, px_o, py_o, px_s, py_s, U_o, Nx_s, Ny_s, device):
     Ny_o, Nx_o = U_o.shape
 
     # Pixel offsets
-    # dkx_off = ((Nx_o - 1) * kpx_o - (Nx_s - 1) * kpx_s) / 2
-    # dky_off = ((Ny_o - 1) * kpy_o - (Ny_s - 1) * kpy_s) / 2
-    # kx_o = torch.arange(Nx_o, device=device, dtype=torch.float32) * kpx_o - dkx_off
-    # ky_o = torch.arange(Ny_o, device=device, dtype=torch.float32) * kpy_o - dky_off
-    kx_o = torch.arange(Nx_o, device=device, dtype=torch.float32) * kpx_o - ((Nx_o - 1) * kpx_o) / 2
-    ky_o = torch.arange(Ny_o, device=device, dtype=torch.float32) * kpy_o - ((Ny_o - 1) * kpy_o) / 2
+    dkx_off = ((Nx_o - 1) * kpx_o - (Nx_s - 1) * kpx_s) / 2
+    dky_off = ((Ny_o - 1) * kpy_o - (Ny_s - 1) * kpy_s) / 2
+    kx_o = torch.arange(Nx_o, device=device, dtype=torch.float32) * kpx_o - dkx_off
+    ky_o = torch.arange(Ny_o, device=device, dtype=torch.float32) * kpy_o - dky_off
 
     # Initialise image field
     U_s = torch.empty((Ny_s, Nx_s), device=device, dtype=torch.complex64)
     z2 = kz ** 2
 
     # Build each image pixel as superposition of Huygens waves from all source pixels
-    kx_sm = torch.arange(Nx_s, device=device, dtype=torch.float32) * kpx_s - ((Nx_s - 1) * kpx_s) / 2
-    ky_sn = torch.arange(Ny_s, device=device, dtype=torch.float32) * kpy_s - ((Ny_s - 1) * kpy_s) / 2
+    kx_sm = torch.arange(Nx_s, device=device, dtype=torch.float32) * kpx_s
+    ky_sn = torch.arange(Ny_s, device=device, dtype=torch.float32) * kpy_s
     pixel_kernel(z2, kx_o, ky_o, kx_sm, ky_sn, U_o, U_s)
 
     # Global scaling
