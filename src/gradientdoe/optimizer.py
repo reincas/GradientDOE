@@ -153,7 +153,8 @@ class Optimizer:
         self.count = count
         self.pitch = pitch
         self.sensor.set_grid(count, pitch)
-        self.weight_distance = torch.tensor(self.sensor.next_distance ** 2, device=self.device, dtype=torch.float32)
+        weight = (self.sensor.next_distance / self.sensor.diameter) ** 2
+        self.weight_distance = torch.tensor(weight, device=self.device, dtype=torch.float32)
         self.sensor_masks = torch.tensor(self.sensor.masks, device=self.device, dtype=torch.float32)  # (Ns, N, N)
         self.asm = AngularSpectrumMethod(count, pitch, self.exp.setup.distance, self.exp.setup.wavelengths, self.device)
 
@@ -227,7 +228,7 @@ class Optimizer:
             l_eta = opt.weightEta * (1 - P_total) ** 2
 
             # Loss function for centering the light on the sensors
-            l_center = opt.weightCenter * torch.mean(H.sum(dim=2) * self.weight_distance) / self.exp.sensor.diameter
+            l_center = opt.weightCenter * torch.mean(H.sum(dim=2) * self.weight_distance) / self.count ** 2
 
             # Total loss function with weights
             loss = l_ortho + l_eta + l_center
