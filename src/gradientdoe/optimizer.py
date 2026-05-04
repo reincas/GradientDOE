@@ -270,7 +270,7 @@ class Optimizer:
             H, P = self.propagate(height_clipped, self.asm, self.count, self.jitter)
 
             # Singular values of the signal matrix
-            P_norm = P - P.mean()
+            P_norm = P - P.mean(dim=0, keepdim=True)
             #P_norm = P / (P.norm(p=2, dim=0, keepdim=True) + 1e-8)
             S = torch.linalg.svdvals(P_norm)
 
