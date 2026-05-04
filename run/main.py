@@ -74,7 +74,7 @@ EXPERIMENT = {
         "learningRate": 0.001,
         "weightOrtho": 2.0,
         "weightEta": 10.0,
-        "weightCenter": 0.1,
+        "weightCenter": 1.0,
         "jitter": True,
         "ema": {
             "patience": 200,
