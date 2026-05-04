@@ -221,7 +221,7 @@ class Optimizer:
             S = torch.linalg.svdvals(P_norm)
 
             # Loss function for orthogonal solution
-            l_ortho = opt.weightOrtho * ((S[0] / (S[-1] + 1e-9)) - 1) ** 2
+            l_ortho = opt.weightOrtho * (S[0] / (S[-1] + 1e-9)) - 1
 
             # Power efficiency
             P_total = (P.mean(dim=1)).sum() / self.count ** 2
