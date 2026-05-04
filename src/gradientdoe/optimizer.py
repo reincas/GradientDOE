@@ -269,19 +269,17 @@ class Optimizer:
             # Power transfer matrix from DOE to sensor plane
             H, P = self.propagate(height_clipped, self.asm, self.count, self.jitter)
 
-            # Singular values of the signal matrix
+            # Loss function for orthogonal solution using singular values of the signal matrix
             P_norm = P - P.mean(dim=0, keepdim=True)
             #P_norm = P / (P.norm(p=2, dim=0, keepdim=True) + 1e-8)
             S = torch.linalg.svdvals(P_norm)
-
-            # Loss function for orthogonal solution
             S_rel = S[0] / (S[-1] + 1e-9)
             l_ortho = opt.weightOrtho * (S_rel - 1) ** 2
 
-            # Power efficiency
+            # Power efficiency (P: dim=0 is sensor dim=1 is specimen)
             P_total = (P.mean(dim=1)).sum() / self.count ** 2
-            P_tot = torch.sqrt((P_norm.mean(dim=1) ** 2).sum()) / self.count ** 2
-            l_eta = opt.weightEta / P_tot
+            #P_tot = torch.sqrt((P_norm.mean(dim=1) ** 2).sum()) / self.count ** 2
+            l_eta = opt.weightEta / P_total
 
             # Loss function for centering the light on the sensors
             mean_distance = torch.sum(H.sum(dim=2) * self.weight_distance) / H.sum()
