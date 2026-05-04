@@ -214,10 +214,10 @@ class Optimizer:
 
             # Singular values of the signal matrix
             P_norm = P / (P.norm(p=2, dim=0, keepdim=True) + 1e-8)
-            S = torch.linalg.svdvals(P_norm)# / self.count ** 2
+            S = torch.linalg.svdvals(P_norm)
 
             # Loss function for orthogonal solution
-            l_ortho = opt.weightOrtho * (S[0] / (S[-1] + 1e-9)) ** 2
+            l_ortho = opt.weightOrtho * ((S[0] / (S[-1] + 1e-9)) - 1) ** 2
 
             # Loss function for centering the light on the sensors
             l_center = opt.weightCenter * torch.mean(H.sum(dim=2) * self.weight_distance) / self.count ** 2

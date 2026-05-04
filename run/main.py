@@ -59,7 +59,7 @@ EXPERIMENT = {
         "verticalCount": 2,
         "pitch": 1000,
         "pitchUnit": "µm",
-        "diameter": 600,
+        "diameter": 300,
         "diameterUnit": "µm",
         "fuzzyRadius": 5,
         "fuzzyRadiusUnit": "µm",
