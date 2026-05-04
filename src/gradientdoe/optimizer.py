@@ -158,15 +158,44 @@ class Optimizer:
         self.sensor_masks = torch.tensor(self.sensor.masks, device=self.device, dtype=torch.float32)  # (Ns, N, N)
         self.asm = AngularSpectrumMethod(count, pitch, self.exp.setup.distance, self.exp.setup.wavelengths, self.device)
 
-    def get_height(self, h_raw):
-        """ Generate DOE height profile (0...h_max) from raw height tensor (soft constraint). """
-
-        return torch.sigmoid(h_raw) * self.h_max
-
     def init_height(self):
         return np.random.rand(self.count, self.count) * self.h_max
         # x = torch.rand((self.count, self.count), device=self.device, dtype=torch.float32, requires_grad=True)
         # return x * self.h_max
+
+    def interpolate_height(self, height, target_count):
+        """ Tensor-based spectral interpolation of a height profile. """
+
+        N = height.shape[0]
+        M = target_count
+
+        # Pixel sizes must be powers of 2
+        assert N > 0 and (N & (N - 1)) == 0
+        assert M > 0 and (M & (M - 1)) == 0
+
+        # Move height profile to GPU if possible
+        height_tensor = torch.tensor(height, device=self.device, dtype=torch.float32)
+
+        # Spatial spectrum
+        height_spectrum = torch.fft.fft2(height_tensor)
+        height_spectrum = torch.fft.fftshift(height_spectrum)
+
+        # Zero-padded spacial spectrum
+        padded_spectrum = torch.zeros((M, M), dtype=torch.complex64, device=self.device)
+        start = (M - N) // 2
+        end = start + N
+        padded_spectrum[start:end, start:end] = height_spectrum
+
+        # Back transformation to interpolated height profile
+        padded_spectrum = torch.fft.ifftshift(padded_spectrum)
+        height = torch.fft.ifft2(padded_spectrum)
+
+        # Scale and shift real part
+        height = height.real * (M / N) ** 2
+        height -= height.min()
+
+        # Return interpolated height profile as numpy array
+        return height.cpu().numpy()
 
     def propagate(self, height, method, count_s, jitter):
         """ Differentiable ASM propagation if plane unit input field using PyTorch. """
@@ -187,6 +216,29 @@ class Optimizer:
         P = torch.matmul(P_sk, self.power)
 
         return H, P
+
+    def step(self, height, method, count_s):
+        """ Calculate H, P, and Ps for a given physical height profile illuminated by unit fields. """
+
+        # Prepare height tensor
+        if isinstance(height, torch.Tensor):
+            height_tensor = height.to(self.device)
+        else:
+            height_tensor = torch.tensor(height, device=self.device, dtype=torch.float32)
+
+        # Propagate unit fields to the sensor plane
+        N = count_s
+        with torch.no_grad():
+            H, P = self.propagate(height_tensor, method, N, jitter=False)
+            Ps = torch.matmul(H, self.power)
+
+        # Normalise powers as numpy arrays
+        H = H.cpu().numpy() / N ** 2
+        P = P.cpu().numpy() / N ** 2
+        Ps = Ps.cpu().numpy() / N ** 2
+
+        # Return results
+        return H, P, Ps
 
     def run(self, height):
         logger.debug("Starting Optimization")
@@ -218,7 +270,8 @@ class Optimizer:
             H, P = self.propagate(height_clipped, self.asm, self.count, self.jitter)
 
             # Singular values of the signal matrix
-            P_norm = P / (P.norm(p=2, dim=0, keepdim=True) + 1e-8)
+            P_norm = P - P.mean()
+            #P_norm = P / (P.norm(p=2, dim=0, keepdim=True) + 1e-8)
             S = torch.linalg.svdvals(P_norm)
 
             # Loss function for orthogonal solution
@@ -261,60 +314,3 @@ class Optimizer:
         else:
             height = None
         return height
-
-    def step(self, height, method, count_s):
-        """ Calculate H, P, and Ps for a given physical height profile illuminated by unit fields. """
-
-        # Prepare height tensor
-        if isinstance(height, torch.Tensor):
-            height_tensor = height.to(self.device)
-        else:
-            height_tensor = torch.tensor(height, device=self.device, dtype=torch.float32)
-
-        # Propagate unit fields to the sensor plane
-        N = count_s
-        with torch.no_grad():
-            H, P = self.propagate(height_tensor, method, N, jitter=False)
-            Ps = torch.matmul(H, self.power)
-
-        # Normalise powers as numpy arrays
-        H = H.cpu().numpy() / N ** 2
-        P = P.cpu().numpy() / N ** 2
-        Ps = Ps.cpu().numpy() / N ** 2
-
-        # Return results
-        return H, P, Ps
-
-    def interpolate_height(self, height, target_count):
-        """ Tensor-based spectral interpolation of a height profile. """
-
-        N = height.shape[0]
-        M = target_count
-
-        # Pixel sizes must be powers of 2
-        assert N > 0 and (N & (N - 1)) == 0
-        assert M > 0 and (M & (M - 1)) == 0
-
-        # Move height profile to GPU if possible
-        height_tensor = torch.tensor(height, device=self.device, dtype=torch.float32)
-
-        # Spatial spectrum
-        height_spectrum = torch.fft.fft2(height_tensor)
-        height_spectrum = torch.fft.fftshift(height_spectrum)
-
-        # Zero-padded spacial spectrum
-        padded_spectrum = torch.zeros((M, M), dtype=torch.complex64, device=self.device)
-        start = (M - N) // 2
-        end = start + N
-        padded_spectrum[start:end, start:end] = height_spectrum
-
-        # Back transformation to interpolated height profile
-        padded_spectrum = torch.fft.ifftshift(padded_spectrum)
-        height = torch.fft.ifft2(padded_spectrum)
-
-        # Scale and shift real part
-        height = height.real * (M / N) ** 2
-        height -= height.min()
-
-        # Return interpolated height profile as numpy array
-        return height.cpu().numpy()

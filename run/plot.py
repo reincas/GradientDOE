@@ -107,6 +107,7 @@ def store_height(height, step_size, path):
 if __name__ == "__main__":
     exp = Experiment.read("result.json")
     optimizer = Optimizer(exp)
+    height = np.array(exp.height)
 
     pitch = exp.grid.pitch
     count = exp.grid.count
@@ -120,9 +121,6 @@ if __name__ == "__main__":
     name = exp.doe.material.model
     names = [x.model for x in exp.setup.sources]
 
-    height = np.array(exp.height)
-    height_image(height, pitch, cmap, name, "opt", path)
-
     AP_list = []
 
     M = height.shape[0] // count
@@ -135,6 +133,8 @@ if __name__ == "__main__":
 
     names = [f"{lam*1000:.3f} nm" for lam in optimizer.doe.wavelengths]
     power_images(H, pitch, optimizer.sensor, cmap, names, "lam", path)
+
+    height_image(height, pitch, cmap, name, "opt", path)
 
     if OPT:
         count_fab = count * M
@@ -175,4 +175,4 @@ if __name__ == "__main__":
         print(P.T)
 
     path = "plots/result.png"
-    store_height(height, 0.0002, path)
+    store_height(height, 0.0001, path)
