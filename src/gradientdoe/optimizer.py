@@ -270,20 +270,16 @@ class Optimizer:
             H, P = self.propagate(height_clipped, self.asm, self.count, self.jitter)
 
             # Loss function for orthogonal solution using singular values of the signal matrix
-            P_norm = P - 0.5 * P.mean(dim=0, keepdim=True)
-            #P_norm = P / (P.norm(p=2, dim=0, keepdim=True) + 1e-8)
-            S = torch.linalg.svdvals(P_norm)
-            S_rel = S[0] / (S[-1] + 1e-9)
-            l_ortho = opt.weightOrtho * (S_rel - 1) ** 2
+            S = torch.linalg.svdvals(P)
+            S_rel = S[0] / (S[-1] + 1e-9) - 1
+            l_ortho = opt.weightOrtho * S_rel ** opt.expOrtho
 
             # Power efficiency (P: dim=0 is sensor dim=1 is specimen)
-            P_tot = (P.mean(dim=1)).sum() / self.count ** 2
-            #P_tot = P - P.mean(dim=0, keepdim=True)
-            #P_tot = torch.sqrt((P_tot.mean(dim=1) ** 2).sum()) / self.count ** 2
-            l_eta = opt.weightEta / P_tot
+            P_eta = -torch.log((P.mean(dim=1)).sum() / self.count ** 2 + 1e-9)
+            l_eta = opt.weightEta * P_eta
 
             # Loss function for centering the light on the sensors
-            mean_distance = torch.sum(H.sum(dim=2) * self.weight_distance) / H.sum()
+            mean_distance = 0.0#torch.sum(H.sum(dim=2) * self.weight_distance) / H.sum()
             l_center = opt.weightCenter * mean_distance
 
             # Total loss function with weights
@@ -296,8 +292,8 @@ class Optimizer:
             # EMA smoothing step
             if ema.step(loss.item()):
                 best_height = height_clipped.detach().cpu().numpy()
-                P_total = (P.mean(dim=1)).sum() / self.count ** 2
-                log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} | {(l_center).item():7.2f} || {S_rel:7.3f} | {P_total:7.3f} | {mean_distance:7.3f}"
+                P_over = P.mean() / (self.count ** 2 * self.sensor.area_ratio)
+                log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} | {l_center:7.2f} || {S_rel:7.3f} | {P_over:7.3f} | {mean_distance:7.3f}"
 
             # Logging
             if ema.has_finished or time.time() - t > 2:

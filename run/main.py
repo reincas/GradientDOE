@@ -73,8 +73,9 @@ EXPERIMENT = {
         "maxLoops": 1000000,
         "learningRate": 0.02,
         "weightOrtho": 2.0,
+        "expOrtho": 2,
         "weightEta": 10.0,
-        "weightCenter": 50.0,
+        "weightCenter": 0.0,
         "jitter": True,
         "ema": {
             "patience": 200,

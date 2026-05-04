@@ -56,7 +56,7 @@ def power_images(Ps, pitch, sensor, cmap, names, method, path):
 
     # Sensor locations
     radius = sensor.diameter / 2
-    centers = sensor.center
+    centers = sensor.centers
     Ns = len(centers)
 
     # Global normalisation over all specimen
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     print(f"Distance: {exp.setup.distance:.0f} µm")
 
     cmap = "viridis"
-    #cmap = "inferno"
+    # cmap = "inferno"
     path = "plots/result_{0}_{1}.png"
     name = exp.doe.material.model
     names = [x.model for x in exp.setup.sources]
@@ -131,8 +131,8 @@ if __name__ == "__main__":
     AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
     power_images(Ps, pitch, optimizer.sensor, cmap, names, "opt", path)
 
-    names = [f"{lam*1000:.3f} nm" for lam in optimizer.doe.wavelengths]
-    power_images(H, pitch, optimizer.sensor, cmap, names, "lam", path)
+    # names = [f"{lam*1000:.3f} nm" for lam in optimizer.doe.wavelengths]
+    # power_images(H, pitch, optimizer.sensor, cmap, names, "lam", path)
 
     height_image(height, pitch, cmap, name, "opt", path)
 
@@ -146,7 +146,8 @@ if __name__ == "__main__":
             count_out = count_fab
             pitch_out = pitch_fab
             optimizer.set_grid(count_out, pitch_out)
-            rs = RayleighSommerfeldMethod(pitch_fab, pitch_out, exp.setup.distance, optimizer.doe.wavelengths, optimizer.device)
+            rs = RayleighSommerfeldMethod(pitch_fab, pitch_out, exp.setup.distance, optimizer.doe.wavelengths,
+                                          optimizer.device)
             H, P, Ps = optimizer.step(height_fab, rs, count_out)
             AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
             power_images(Ps, pitch_out, optimizer.sensor, cmap, names, "rs", path)
@@ -158,11 +159,11 @@ if __name__ == "__main__":
 
         np.set_printoptions(formatter=cast(Any, {'float': '{: .3f}'.format}), linewidth=120)
         Ni = len(exp.setup.sources)
-        Ns = len(optimizer.sensor.center)
+        Ns = optimizer.sensor.num_sensors
         for i in range(Ni):
             P = np.empty((len(AP_list), Ns), dtype=float)
             for j, (_, M) in enumerate(AP_list):
-                P[j, :] = M[:, i] #/ sum(M[:, i])
+                P[j, :] = M[:, i]  # / sum(M[:, i])
             print(f"Specimen {i}:")
             print(P)
         AP = np.empty((Ni, len(AP_list) * Ni), dtype=float)
@@ -176,6 +177,14 @@ if __name__ == "__main__":
         P_norm = P - P.mean(axis=0, keepdims=True)
         print(P_norm.T)
 
+        masks = optimizer.sensor.masks # (Ns, N, N)
+        power = optimizer.power.detach().cpu().numpy() # (Nk, Nc)
+        print(count)
+        print(power.sum(axis=0))
+        print(np.einsum("sij->s", masks) / count ** 2)
+        print(np.einsum("ijk->k", H))
+        print(np.einsum("sij,ijk->sk", masks, H))
+        print(np.einsum("sij,ijk,kc->sc", masks, H, power))
 
     path = "plots/result.png"
     store_height(height, 0.0001, path)

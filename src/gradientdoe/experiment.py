@@ -73,6 +73,7 @@ class OptParameter(Parameter):
     maxLoops: int
     learningRate: float
     weightOrtho: float
+    expOrtho: int
     weightEta: float
     weightCenter: float
     jitter: bool

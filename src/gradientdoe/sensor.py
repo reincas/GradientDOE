@@ -17,18 +17,21 @@ class SensorArray:
         self.fuzzy_radius = sensor.fuzzyRadius
         self.skip_center = sensor.skipCenter
 
-        self.center = self.get_center()
+        self.centers = self.get_centers()
+        self.num_sensors = len(self.centers)
 
         self.distance = None
         self.next_distance = None
         self.masks = None
+        self.area_ratio = None
 
     def set_grid(self, count, pitch):
         self.distance = self.get_distance(count, pitch)
         self.next_distance = self.distance.min(axis=0)
         self.masks = self.get_masks()
+        self.area_ratio = np.sum(self.masks[0]) / count ** 2
 
-    def get_center(self):
+    def get_centers(self):
         """ Get center coordinates of all sensors. """
 
         # Center positions of the sensor array
@@ -55,12 +58,12 @@ class SensorArray:
         x, y = np.meshgrid(coords, coords)
 
         # Sensor center coordinates
-        Ns = len(self.center)
+        Ns = len(self.centers)
 
         # Build distance stack
         distance = np.zeros((Ns, count, count), dtype=float)
         for s in range(Ns):
-            xc, hc = self.center[s]
+            xc, hc = self.centers[s]
             distance[s] = np.sqrt((x - xc) ** 2 + (y - hc) ** 2)
 
         # Return distance stack (Ns, N, N)
