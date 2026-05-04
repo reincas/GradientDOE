@@ -124,9 +124,9 @@ if __name__ == "__main__":
     count *= M
     pitch /= M
 
-    print(f"Grid pitch: {exp.grid.pitch:.1f} µm")
-    print(f"Grid count: {exp.grid.count}")
-    print(f"Distance: {exp.setup.distance:.0f} µm")
+    print(f"Grid pitch: {pitch:.1f} µm")
+    print(f"Grid count: {count}")
+    print(f"Distance: {exp.setup.distance / 1000:.1f} mm")
 
     cmap = "viridis"
     # cmap = "inferno"
