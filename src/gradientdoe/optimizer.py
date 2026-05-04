@@ -153,7 +153,7 @@ class Optimizer:
         self.count = count
         self.pitch = pitch
         self.sensor.set_grid(count, pitch)
-        weight = (self.sensor.next_distance / self.sensor.diameter) ** 2
+        weight = self.sensor.next_distance / self.sensor.diameter
         self.weight_distance = torch.tensor(weight, device=self.device, dtype=torch.float32)
         self.sensor_masks = torch.tensor(self.sensor.masks, device=self.device, dtype=torch.float32)  # (Ns, N, N)
         self.asm = AngularSpectrumMethod(count, pitch, self.exp.setup.distance, self.exp.setup.wavelengths, self.device)
@@ -228,7 +228,8 @@ class Optimizer:
             l_eta = opt.weightEta * (1 - P_total) ** 2
 
             # Loss function for centering the light on the sensors
-            l_center = opt.weightCenter * torch.mean(H.sum(dim=2) * self.weight_distance)
+            mean_distance = torch.sum(H.sum(dim=2) * self.weight_distance) / H.sum()
+            l_center = opt.weightCenter * mean_distance
 
             # Total loss function with weights
             loss = l_ortho + l_eta + l_center
@@ -246,7 +247,7 @@ class Optimizer:
                 t = time.time()
                 S = ", ".join([f"{x:5.3f}" for x in S])
                 logger.debug(
-                    f"[{self.count}] {i:5d} | {ema.counter:3d} | {l_ortho.item():6.2f} | {l_eta.item():6.2f} | {(l_center).item():6.2f} | {S} | {P_total:5.3f}")
+                    f"[{self.count}] {i:5d} | {ema.counter:3d} | {l_ortho.item():7.2f} | {l_eta.item():7.2f} | {(l_center).item():7.2f} || {S} | {P_total:5.3f} | {mean_distance:5.3f}")
 
                 if ema.has_finished:
                     logger.debug(f"Converged [{self.count}]: Improvement < {ema.threshold * 100}% for {ema.patience} iterations.")
