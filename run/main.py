@@ -65,13 +65,14 @@ EXPERIMENT = {
         "fuzzyRadiusUnit": "µm",
         "skipCenter": True,
         "eta": None,
-        "minOversample": 16,
+        "minOversample": 32,
         "oversample": 0,
     },
     "optimizer": {
         "maxLoops": 1000000,
         "learningRate": 0.001,
-        "weightOrtho": 1.0,
+        "weightOrtho": 2.0,
+        "weightEta": 10.0,
         "weightCenter": 0.1,
         "jitter": True,
         "ema": {
@@ -120,9 +121,16 @@ if __name__ == '__main__':
     exp.adjust_parameters(wavelengths, spectra, material)
 
     # Determine suitable height profile
+    count = exp.grid.count
+    pitch = exp.grid.pitch
     optimizer = Optimizer(exp)
     height = optimizer.init_height()
     height = optimizer.run(height)
+    for i in range(2):
+        count *= 2
+        pitch /= 2
+        optimizer.set_grid(count, pitch)
+        height = optimizer.run(height)
 
     # Store result
     if height is not None:

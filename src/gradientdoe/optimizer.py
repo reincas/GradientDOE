@@ -224,7 +224,7 @@ class Optimizer:
 
             # Power efficiency
             P_total = (P.mean(dim=1)).sum() / self.count ** 2
-            l_eta = 5 * (1 - P_total) ** 2
+            l_eta = opt.weightEta * (1 - P_total) ** 2
 
             # Loss function for centering the light on the sensors
             l_center = opt.weightCenter * torch.mean(H.sum(dim=2) * self.weight_distance) / self.count ** 2
