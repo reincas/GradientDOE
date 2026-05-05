@@ -311,7 +311,7 @@ class Optimizer:
             loss.backward()
             optimizer.step()
 
-            self.h_max = self.exp.optimizer.maxHeightFactor * (self.h_max - self.exp.doe.maxHeight)
+            self.h_max -= self.exp.optimizer.maxHeightFactor * (self.h_max - self.exp.doe.maxHeight)
 
             # EMA smoothing step
             if ema.step(loss.item()):
