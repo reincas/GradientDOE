@@ -133,7 +133,7 @@ if __name__ == '__main__':
         count *= 2
         pitch /= 2
         height = optimizer.interpolate_height(height, count)
-        print(f"Interpolation to {count} pixel: height = {np.min(height):.2f} - {np.min(height):.2f} µm")
+        print(f"Interpolation to {count} pixel: height = {np.min(height):.2f} - {np.max(height):.2f} µm")
         height = optimizer.clip_height(height, 0.01)
         optimizer.set_grid(count, pitch)
         height = optimizer.run(height)
