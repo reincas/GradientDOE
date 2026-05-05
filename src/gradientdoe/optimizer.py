@@ -240,6 +240,9 @@ class Optimizer:
         # Return results
         return H, P, Ps
 
+    def clip_height(self, height, fuzz):
+        return soft_clip(height, self.h_max, fuzz * self.h_max)
+
     def run(self, height):
         logger.debug("Starting Optimization")
 
@@ -264,7 +267,7 @@ class Optimizer:
             optimizer.zero_grad()
 
             # Clip height profile with smoothed corners
-            height_clipped = soft_clip(height, self.h_max, 0.01 * self.h_max)
+            height_clipped = self.clip_height(height, 0.01)
 
             # Power transfer matrix from DOE to sensor plane
             H, P = self.propagate(height_clipped, self.asm, self.count, self.jitter)
@@ -279,7 +282,7 @@ class Optimizer:
             l_eta = opt.weightEta * P_eta
 
             # Loss function for centering the light on the sensors
-            mean_distance = 0.0#torch.sum(H.sum(dim=2) * self.weight_distance) / H.sum()
+            mean_distance = 0.0  # torch.sum(H.sum(dim=2) * self.weight_distance) / H.sum()
             l_center = opt.weightCenter * mean_distance
 
             # Total loss function with weights

@@ -66,15 +66,15 @@ EXPERIMENT = {
         "fuzzyRadiusUnit": "µm",
         "skipCenter": True,
         "eta": None,
-        "minOversample": 16,
+        "minOversample": 32,
         "oversample": 0,
     },
     "optimizer": {
         "maxLoops": 1000000,
-        "learningRate": 0.02,
+        "learningRate": 0.05,
         "weightOrtho": 2.0,
         "expOrtho": 2,
-        "weightEta": 10.0,
+        "weightEta": 50.0,
         "weightCenter": 0.0,
         "jitter": True,
         "ema": {

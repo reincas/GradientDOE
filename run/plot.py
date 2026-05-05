@@ -13,12 +13,12 @@ from gradientdoe.experiment import Experiment
 from gradientdoe.optimizer import Optimizer
 from gradientdoe.propagate import RayleighSommerfeldMethod, AngularSpectrumMethod
 
-OPT = 0
-M = 2
+M_FAB = []  # 2, 4, 8]
 RS = 0
+STORE_WL = False
 
 
-def height_image(height, pitch, cmap, name, method, path):
+def store_height_plot(height, pitch, cmap, name, method, path):
     """ Stores a visualization of the optimized DOE height profile in microns. """
 
     # Spacial grid
@@ -41,13 +41,13 @@ def height_image(height, pitch, cmap, name, method, path):
     plt.colorbar(im, ax=ax, label=r"Height / $\mu$m")
 
     # Save image figure
-    filepath = path.format(method, "h")
+    filepath = path.format(method, f"{count}")
     plt.savefig(filepath, bbox_inches='tight', dpi=150)
     plt.close(fig)
-    print(f"Stored height profile image: {filepath}")
+    print(f"    Stored height profile image: {filepath}")
 
 
-def power_images(Ps, P, pitch, sensor, cmap, names, method, path):
+def store_power_plots(Ps, P, pitch, sensor, cmap, names, method, path):
     """ Stores sensor plane power images. """
 
     # Window edges
@@ -81,7 +81,7 @@ def power_images(Ps, P, pitch, sensor, cmap, names, method, path):
             circle = patches.Circle((xc, yc), radius, linewidth=1, edgecolor='red', facecolor='none', alpha=0.7)
             ax.add_patch(circle)
             if P is not None:
-                ax.text(xc, yc - radius - (radius * 0.3), f"{P[s, i]*100:.1f} %",
+                ax.text(xc, yc - radius - (radius * 0.3), f"{P[s, i] * 100:.1f} %",
                         color='white', ha='center', va='top', fontsize=8, fontweight='normal')
 
         # Labels and titles
@@ -92,13 +92,13 @@ def power_images(Ps, P, pitch, sensor, cmap, names, method, path):
             plt.colorbar(im, ax=ax, label='Power (relative)')
 
     # Save image figure
-    filepath = path.format(method, "all")
+    filepath = path.format(method, f"{count}")
     plt.savefig(filepath, bbox_inches='tight', dpi=150)
     plt.close(fig)
-    print(f"Stored sensor power image: {filepath}")
+    print(f"    Stored sensor power image: {filepath}")
 
 
-def store_height(height, step_size, path):
+def store_height_profile(height, step_size, path):
     """ Store the height profile as a 16-bit PNG. """
 
     # Represent height profile as integer
@@ -107,13 +107,18 @@ def store_height(height, step_size, path):
 
     # Store image
     img = Image.fromarray(h_int16)
-    filepath = path.format("fab", "h")
+    count = height.shape[0]
+    filepath = path.format(f"{count}")
     img.save(filepath, format="PNG", compress_level=6)
-    print(f"Fabrication file: {path}")
-    print(f"Maximum value: {np.max(h_int16)}")
+    print(f"    Fabrication file: {path}")
+    print(f"    Maximum value: {np.max(h_int16)}")
+    assert np.max(h_int16) < 2 ** 16 - 1
 
 
 if __name__ == "__main__":
+    np.set_printoptions(formatter=cast(Any, {'float': '{: .3f}'.format}), linewidth=120)
+
+    # Initialise optimizer and load height profile
     exp = Experiment.read("result.json")
     optimizer = Optimizer(exp)
     height = np.array(exp.height)
@@ -124,77 +129,68 @@ if __name__ == "__main__":
     count *= M
     pitch /= M
 
-    print(f"Grid pitch: {pitch:.1f} µm")
-    print(f"Grid count: {count}")
-    print(f"Distance: {exp.setup.distance / 1000:.1f} mm")
+    print(f"Height profile:")
+    print(f"    Grid pitch: {pitch:.1f} µm")
+    print(f"    Grid count: {count}")
+    print(f"    Distance: {exp.setup.distance / 1000:.1f} mm")
 
+    # Prepare diagram formatting and storage
     cmap = "viridis"
     # cmap = "inferno"
-    path = "plots/result_{0}_{1}.png"
+    height_path = "plots/height_{0}_{1}.png"
+    power_path = "plots/power_{0}_{1}.png"
+    spectrum_path = "plots/spectrum_{0}_{1}.png"
+    profile_path = "plots/profile_{0}.png"
     name = exp.doe.material.model
     names = [x.model for x in exp.setup.sources]
 
-    AP_list = []
+    print(f"Optimised height profile ({count} pixels):")
+    filepath = "plots/result.png"
+    store_height_profile(height, 0.0001, profile_path)
+    store_height_plot(height, pitch, cmap, name, "opt", height_path)
 
     optimizer.set_grid(count, pitch)
     H, P, Ps = optimizer.step(height, optimizer.asm, count)
-    AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
-    power_images(Ps, P, pitch, optimizer.sensor, cmap, names, "opt", path)
+    print("    " + str(P.T).replace("\n", "\n    "))
+    store_power_plots(Ps, P, pitch, optimizer.sensor, cmap, names, "opt", power_path)
 
-    # names = [f"{lam*1000:.3f} nm" for lam in optimizer.doe.wavelengths]
-    # power_images(H, None, pitch, optimizer.sensor, cmap, names, "lam", path)
+    if STORE_WL:
+        names = [f"{lam*1000:.3f} nm" for lam in optimizer.doe.wavelengths]
+        store_power_plots(H, None, pitch, optimizer.sensor, cmap, names, "opt", spectrum_path)
 
-    height_image(height, pitch, cmap, name, "opt", path)
-
-    if OPT:
+    for M in M_FAB:
         count_fab = count * M
         pitch_fab = pitch / M
+
+        print(f"Interpolated height profile ({count_fab} pixels):")
         height_fab = optimizer.interpolate_height(height, count_fab)
-        height_image(height_fab, pitch_fab, cmap, name, "fab", path)
+        #height_fab = optimizer.clip_height(height_fab, 0.01)
+        store_height_profile(height_fab, 0.0001, profile_path)
+        store_height_plot(height_fab, pitch_fab, cmap, name, "ip", height_path)
+
+        print(f"    ASM propagation")
+        optimizer.set_grid(count_fab, pitch_fab)
+        H, P, Ps = optimizer.step(height_fab, optimizer.asm, count_fab)
+        print("    " + str(P.T).replace("\n", "\n    "))
+        store_power_plots(Ps, P, pitch_fab, optimizer.sensor, cmap, names, "asm", power_path)
 
         if RS:
             count_out = count_fab
             pitch_out = pitch_fab
+
+            print(f"    RS propagation")
             optimizer.set_grid(count_out, pitch_out)
             rs = RayleighSommerfeldMethod(pitch_fab, pitch_out, exp.setup.distance, optimizer.doe.wavelengths,
                                           optimizer.device)
             H, P, Ps = optimizer.step(height_fab, rs, count_out)
-            AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
-            power_images(Ps, P, pitch_out, optimizer.sensor, cmap, names, "rs", path)
+            print("    " + str(P.T).replace("\n", "\n    "))
+            store_power_plots(Ps, P, pitch_out, optimizer.sensor, cmap, names, "rs", power_path)
 
-        optimizer.set_grid(count_fab, pitch_fab)
-        H, P, Ps = optimizer.step(height_fab, optimizer.asm, count_fab)
-        AP_list.append((np.linalg.pinv(P, rcond=1e-2), P))
-        power_images(Ps, P, pitch_fab, optimizer.sensor, cmap, names, "fab", path)
-
-        np.set_printoptions(formatter=cast(Any, {'float': '{: .3f}'.format}), linewidth=120)
-        Ni = len(exp.setup.sources)
-        Ns = optimizer.sensor.num_sensors
-        for i in range(Ni):
-            P = np.empty((len(AP_list), Ns), dtype=float)
-            for j, (_, M) in enumerate(AP_list):
-                P[j, :] = M[:, i]  # / sum(M[:, i])
-            print(f"Specimen {i}:")
-            print(P)
-        AP = np.empty((Ni, len(AP_list) * Ni), dtype=float)
-        for j, (A, P) in enumerate(AP_list):
-            AP[:, j * 3:j * 3 + Ni] = A @ P
-        print("A @ P:")
-        print(AP)
-    else:
-        np.set_printoptions(formatter=cast(Any, {'float': '{: .3f}'.format}), linewidth=120)
-        print(P.T)
-        P_norm = P - P.mean(axis=0, keepdims=True)
-        print(P_norm.T)
-
-        # masks = optimizer.sensor.masks # (Ns, N, N)
-        # power = optimizer.power.detach().cpu().numpy() # (Nk, Nc)
-        # print(count)
-        # print(power.sum(axis=0))
-        # print(np.einsum("sij->s", masks) / count ** 2)
-        # print(np.einsum("ijk->k", H))
-        # print(np.einsum("sij,ijk->sk", masks, H))
-        # print(np.einsum("sij,ijk,kc->sc", masks, H, power))
-
-    path = "plots/result.png"
-    store_height(height, 0.0001, path)
+    # masks = optimizer.sensor.masks # (Ns, N, N)
+    # power = optimizer.power.detach().cpu().numpy() # (Nk, Nc)
+    # print(count)
+    # print(power.sum(axis=0))
+    # print(np.einsum("sij->s", masks) / count ** 2)
+    # print(np.einsum("ijk->k", H))
+    # print(np.einsum("sij,ijk->sk", masks, H))
+    # print(np.einsum("sij,ijk,kc->sc", masks, H, power))
