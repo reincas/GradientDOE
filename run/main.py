@@ -66,7 +66,7 @@ EXPERIMENT = {
         "fuzzyRadiusUnit": "µm",
         "skipCenter": True,
         "eta": None,
-        "minOversample": 32,
+        "minOversample": 16,
         "oversample": 0,
     },
     "optimizer": {

@@ -171,7 +171,7 @@ class Optimizer:
         if isinstance(height, torch.Tensor):
             return torch.logit(height / self.h_max)
         x = height / self.h_max
-        return np.log(x / (1 - x))
+        return np.log(x / (1 - x + 1e-9))
 
     def interpolate_height(self, height, target_count):
         """ Tensor-based spectral interpolation of a height profile. """
@@ -318,7 +318,7 @@ class Optimizer:
             if ema.has_finished or time.time() - t > 2:
                 t = time.time()
                 if log:
-                    logger.debug(f"{self.count} | {i:5d} | {ema.counter:3d} || {log}")
+                    logger.debug(f"{self.count:5d} | {i:5d} | {ema.counter:3d} || {log}")
 
                 if ema.has_finished:
                     logger.debug(
