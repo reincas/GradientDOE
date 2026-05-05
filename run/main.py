@@ -131,6 +131,7 @@ if __name__ == '__main__':
         count *= 2
         pitch /= 2
         height = optimizer.interpolate_height(height, count)
+        height = optimizer.clip_height(height, 0.01 * optimizer.h_max)
         optimizer.set_grid(count, pitch)
         height = optimizer.run(height)
 

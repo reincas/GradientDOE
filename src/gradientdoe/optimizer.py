@@ -170,7 +170,7 @@ class Optimizer:
     def get_raw(self, height):
         if isinstance(height, torch.Tensor):
             return torch.logit(height / self.h_max)
-        x = np.clip(height / self.h_max, 1e-8, 1 - 1e-8)
+        x = np.clip(height / self.h_max, 1e-9, 1 - 1e-9)
         return np.log(x / (1 - x))
 
     def interpolate_height(self, height, target_count):
