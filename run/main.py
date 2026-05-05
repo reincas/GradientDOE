@@ -74,8 +74,8 @@ EXPERIMENT = {
     "optimizer": {
         "maxLoops": 1000000,
         "learningRate": 0.05,
-        "maxHeightFactor": 1e-3,
-        "weightOrtho": 2.0,
+        "maxHeightFactor": 1e-2,
+        "weightOrtho": 5.0,
         "expOrtho": 2,
         "weightEta": 50.0,
         "jitter": True,
@@ -128,7 +128,7 @@ if __name__ == '__main__':
     count = exp.grid.count
     pitch = exp.grid.pitch
     optimizer = Optimizer(exp)
-    height = optimizer.init_height()
+    height = optimizer.init_height() * 0.5
     height = optimizer.run(height)
     exp.add_parameter(f"height.{count}", height.tolist())
     while count < exp.grid.countFinal:
