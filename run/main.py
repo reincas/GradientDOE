@@ -128,7 +128,7 @@ if __name__ == '__main__':
     count = exp.grid.count
     pitch = exp.grid.pitch
     optimizer = Optimizer(exp)
-    height = optimizer.init_height() * 0.5
+    height = optimizer.init_height()
     height = optimizer.run(height)
     exp.add_parameter(f"height.{count}", height.tolist())
     while count < exp.grid.countFinal:

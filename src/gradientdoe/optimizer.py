@@ -147,7 +147,7 @@ class Optimizer:
 
         # Maximum height of the DOE profile
         self.h_max = float(self.exp.doe.maxHeight)
-        #self.h_max = float(self.exp.doe.maxHeight * self.exp.optimizer.maxHeightFactor)
+        # self.h_max = float(self.exp.doe.maxHeight * self.exp.optimizer.maxHeightFactor)
 
     def set_grid(self, count, pitch):
         self.count = count
@@ -157,7 +157,8 @@ class Optimizer:
         self.asm = AngularSpectrumMethod(count, pitch, self.exp.setup.distance, self.exp.setup.wavelengths, self.device)
 
     def init_height(self):
-        return np.random.rand(self.count, self.count) * self.h_max
+        """ Return random height profile in the range [0.25 * h_max, 0.75 * h_max]. """
+        return (np.random.rand(self.count, self.count) + 0.5) * 0.5 * self.h_max
         # x = torch.rand((self.count, self.count), device=self.device, dtype=torch.float32, requires_grad=True)
         # return x * self.h_max
 
