@@ -160,6 +160,16 @@ class Optimizer:
         # x = torch.rand((self.count, self.count), device=self.device, dtype=torch.float32, requires_grad=True)
         # return x * self.h_max
 
+    def get_height(self, h_raw):
+        """ Generate DOE height profile (0...h_max) from raw height tensor (soft constraint). """
+
+        return torch.sigmoid(h_raw) * self.h_max
+
+    def get_raw(self, height):
+        # return torch.logit(height / self.h_max)
+        x = height / self.h_max
+        return np.log(x / (1 - x))
+
     def interpolate_height(self, height, target_count):
         """ Tensor-based spectral interpolation of a height profile. """
 
@@ -246,15 +256,21 @@ class Optimizer:
 
     def run(self, height):
         logger.debug("Starting Optimization")
+        assert isinstance(height, np.ndarray)
+
+        # Random initialisation of raw height tensor stretching from -inf to +inf
+        #height_raw = torch.randn((N, N), device=self.device, dtype=torch.float32, requires_grad=True)
 
         # Initialize optimiser target
-        assert isinstance(height, np.ndarray)
-        best_height = height.copy()
-        height = torch.tensor(height, device=self.device, dtype=torch.float32, requires_grad=True)
+        height_raw = torch.tensor(self.get_raw(height), device=self.device, dtype=torch.float32, requires_grad=True)
+        best_raw = height_raw.detach().clone()
+        #best_height = height.copy()
+        #height = torch.tensor(height, device=self.device, dtype=torch.float32, requires_grad=True)
 
         # Initialize optimiser
         opt = self.exp.optimizer
-        optimizer = torch.optim.Adam([height], lr=opt.learningRate)
+        optimizer = torch.optim.Adam([height_raw], lr=opt.learningRate)
+        #optimizer = torch.optim.Adam([height], lr=opt.learningRate)
 
         # Initialize EMA smoothing (exponential moving average)
         ema = self.exp.optimizer.ema
@@ -267,11 +283,10 @@ class Optimizer:
             # Reset gradients
             optimizer.zero_grad()
 
-            # Clip height profile with smoothed corners
-            height_clipped = self.clip_height(height, 0.01)
-
             # Power transfer matrix from DOE to sensor plane
-            H, P = self.propagate(height_clipped, self.asm, self.count, self.jitter)
+            #height_clipped = self.clip_height(height, 0.01)
+            #H, P = self.propagate(height_clipped, self.asm, self.count, self.jitter)
+            H, P = self.propagate(self.get_height(height_raw), self.asm, self.count, self.jitter)
 
             # Loss function for orthogonal solution using singular values of the signal matrix
             S = torch.linalg.svdvals(P)
@@ -291,7 +306,8 @@ class Optimizer:
 
             # EMA smoothing step
             if ema.step(loss.item()):
-                best_height = height_clipped.detach().cpu().numpy()
+                #best_height = height_clipped.detach().cpu().numpy()
+                best_raw = height_raw.detach().cpu().numpy()
                 P_over = P.mean() / (self.count ** 2 * self.sensor.area_ratio)
                 log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} || {S_rel:7.3f} | {P_over:7.3f}"
 
@@ -299,7 +315,7 @@ class Optimizer:
             if ema.has_finished or time.time() - t > 2:
                 t = time.time()
                 if log:
-                    logger.debug(f"[{self.count}] {i:5d} | {ema.counter:3d} | {log}")
+                    logger.debug(f"{i:5d}:{self.count} | {ema.counter:3d} || {log}")
 
                 if ema.has_finished:
                     logger.debug(
@@ -307,7 +323,9 @@ class Optimizer:
                     break
 
         if ema.has_finished:
-            height = best_height
+            #height = best_height
+            height_raw.copy_(torch.from_numpy(best_raw))
+            height = self.get_height(height_raw).detach().cpu().numpy()
         else:
             height = None
         return height
