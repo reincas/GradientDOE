@@ -163,10 +163,13 @@ class Optimizer:
     def get_height(self, h_raw):
         """ Generate DOE height profile (0...h_max) from raw height tensor (soft constraint). """
 
-        return torch.sigmoid(h_raw) * self.h_max
+        if isinstance(h_raw, torch.Tensor):
+            return torch.sigmoid(h_raw) * self.h_max
+        return 1 / (1 + np.exp(-h_raw))
 
     def get_raw(self, height):
-        # return torch.logit(height / self.h_max)
+        if isinstance(height, torch.Tensor):
+            return torch.logit(height / self.h_max)
         x = height / self.h_max
         return np.log(x / (1 - x))
 
@@ -315,7 +318,7 @@ class Optimizer:
             if ema.has_finished or time.time() - t > 2:
                 t = time.time()
                 if log:
-                    logger.debug(f"{i:5d}:{self.count} | {ema.counter:3d} || {log}")
+                    logger.debug(f"{self.count} | {i:5d} | {ema.counter:3d} || {log}")
 
                 if ema.has_finished:
                     logger.debug(
@@ -324,8 +327,7 @@ class Optimizer:
 
         if ema.has_finished:
             #height = best_height
-            height_raw.copy_(torch.from_numpy(best_raw))
-            height = self.get_height(height_raw).detach().cpu().numpy()
+            height = self.get_height(best_raw)
         else:
             height = None
         return height
