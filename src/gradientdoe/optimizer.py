@@ -269,7 +269,7 @@ class Optimizer:
 
         # Initialize optimiser target
         self.h_max = float(max(np.max(height), self.exp.doe.maxHeight))
-        print(self.h_max, self.exp.doe.maxHeight)
+        logger.debug(f"Damping maxHeight: {self.h_max} -> {self.exp.doe.maxHeight} µm")
         height_raw = torch.tensor(self.get_raw(height), device=self.device, dtype=torch.float32, requires_grad=True)
         best_raw = height_raw.detach().clone()
         # best_height = height.copy()
