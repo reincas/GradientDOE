@@ -110,7 +110,8 @@ def store_height_profile(height, step_size, path):
     count = height.shape[0]
     filepath = path.format(f"{count}")
     img.save(filepath, format="PNG", compress_level=6)
-    print(f"    Fabrication file: {path}")
+    print(f"    Fabrication file: {filepath}")
+    print(f"    Maximum height: {np.max(height):.2f} µm")
     print(f"    Maximum value: {np.max(h_int16)}")
     assert np.max(h_int16) < 2 ** 16 - 1
 

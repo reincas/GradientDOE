@@ -165,7 +165,7 @@ class Optimizer:
 
         if isinstance(h_raw, torch.Tensor):
             return torch.sigmoid(h_raw) * self.h_max
-        return 1 / (1 + np.exp(-h_raw))
+        return self.h_max / (1 + np.exp(-h_raw))
 
     def get_raw(self, height):
         if isinstance(height, torch.Tensor):
