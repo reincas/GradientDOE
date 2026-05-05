@@ -3,7 +3,7 @@
 # <reinhard.caspary@phoenixd.uni-hannover.de>                            #
 # This program is free software under the terms of the MIT license.      #
 ##########################################################################
-
+import h5py
 from matplotlib import pyplot as plt, patches as patches
 import numpy as np
 from PIL import Image
@@ -16,6 +16,17 @@ from gradientdoe.propagate import RayleighSommerfeldMethod, AngularSpectrumMetho
 M_FAB = []  # 2, 4, 8]
 RS = 0
 STORE_WL = False
+
+
+def read_height(filename, count=None):
+    """ Read given (or largest) height profile. """
+
+    with h5py.File(filename, "r") as fp:
+        if count is None:
+            count = max([int(x.split("_", 1)[1]) for x in fp.keys() if x.startswith("height_")])
+        name = f"height_{count}"
+        assert name in fp.keys()
+        return np.array(fp[name])
 
 
 def store_height_plot(height, pitch, cmap, name, method, path):
@@ -122,7 +133,7 @@ if __name__ == "__main__":
     # Initialise optimizer and load height profile
     exp = Experiment.read("result.json")
     optimizer = Optimizer(exp)
-    height = np.array(exp.height)
+    height = read_height("result.h5")
 
     pitch = exp.grid.pitch
     count = exp.grid.count
@@ -157,7 +168,7 @@ if __name__ == "__main__":
     store_power_plots(Ps, P, pitch, optimizer.sensor, cmap, names, "opt", power_path)
 
     if STORE_WL:
-        names = [f"{lam*1000:.3f} nm" for lam in optimizer.doe.wavelengths]
+        names = [f"{lam * 1000:.3f} nm" for lam in optimizer.doe.wavelengths]
         store_power_plots(H, None, pitch, optimizer.sensor, cmap, names, "opt", spectrum_path)
 
     for M in M_FAB:
@@ -167,7 +178,7 @@ if __name__ == "__main__":
         print(f"Interpolated height profile ({count_fab} pixels):")
         height_fab = optimizer.interpolate_height(height, count_fab)
         print(f"    Heights: {np.min(height_fab):.2f} - {np.max(height_fab):.2f} µm")
-        #height_fab = optimizer.clip_height(height_fab, 1e-8, exp.doe.maxHeight)
+        # height_fab = optimizer.clip_height(height_fab, 1e-8, exp.doe.maxHeight)
         store_height_profile(height_fab, 0.0001, profile_path)
         store_height_plot(height_fab, pitch_fab, cmap, name, "ip", height_path)
 

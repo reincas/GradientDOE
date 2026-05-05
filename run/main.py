@@ -4,9 +4,8 @@
 # This program is free software under the terms of the MIT license.      #
 ##########################################################################
 
+import h5py
 import logging
-
-import numpy as np
 
 from gradientdoe.experiment import Experiment
 from gradientdoe.optimizer import Optimizer
@@ -107,8 +106,21 @@ def init_logger():
     root.addHandler(console_h)
 
 
+def write_height(height, count, path):
+    """ Store height profile in HDF5 file. """
+
+    name = f"height_{count}"
+    with h5py.File(path, "a") as fp:
+        if name in fp:
+            del fp[name]
+        fp.create_dataset(name, data=height, dtype='float32')
+        logger.info(f"Height profile {name} stored in {path}")
+
+
 if __name__ == '__main__':
     init_logger()
+    height_path = "result.h5"
+    result_path = "result.json"
 
     # Artificial specimen spectra
     src_model = "CSL1"
@@ -130,18 +142,15 @@ if __name__ == '__main__':
     optimizer = Optimizer(exp)
     height = optimizer.init_height()
     height = optimizer.run(height)
-    exp.add_parameter(f"height.{count}", height.tolist())
+    write_height(height, count, height_path)
     while count < exp.grid.countFinal:
         count *= 2
         pitch /= 2
         height = optimizer.interpolate_height(height, count)
-        #height /= np.max(height) * optimizer.h_max
-        #height = optimizer.clip_height(height, 0.01)
         optimizer.set_grid(count, pitch)
         height = optimizer.run(height)
-        exp.add_parameter(f"height.{count}", height.tolist())
+        write_height(height, count, height_path)
 
     # Store result
-    path = "result.json"
-    exp.write(path)
-    logger.info(f"Optimization result stored in {path}")
+    exp.write(result_path)
+    logger.info(f"Optimization parameters stored in {result_path}")
