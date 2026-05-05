@@ -199,7 +199,6 @@ class Optimizer:
 
     def propagate(self, height, method, count_s, jitter):
         """ Differentiable ASM propagation if plane unit input field using PyTorch. """
-        print(torch.cuda.memory_summary(device=None, abbreviated=False))
 
         # Propagate field from DOE to sensor plane
         Uo = self.doe.fields_from_height(height)
@@ -220,6 +219,10 @@ class Optimizer:
 
     def step(self, height, method, count_s):
         """ Calculate H, P, and Ps for a given physical height profile illuminated by unit fields. """
+
+        print(torch.cuda.memory_summary(device=None, abbreviated=False))
+        torch.cuda.empty_cache()
+        print(torch.cuda.memory_summary(device=None, abbreviated=False))
 
         # Prepare height tensor
         if isinstance(height, torch.Tensor):
