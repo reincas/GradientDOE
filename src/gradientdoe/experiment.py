@@ -72,6 +72,7 @@ class SensorParameter(Parameter):
 class OptParameter(Parameter):
     maxLoops: int
     learningRate: float
+    maxHeightFactor: float
     weightOrtho: float
     expOrtho: int
     weightEta: float

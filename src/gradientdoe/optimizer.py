@@ -146,7 +146,7 @@ class Optimizer:
                                   device=self.device, dtype=torch.float32)  # (Nk, Ni)
 
         # Maximum height of the DOE profile
-        self.h_max = float(self.exp.doe.maxHeight)
+        self.h_max = float(self.exp.doe.maxHeight * self.exp.optimizer.maxHeightFactor)
 
     def set_grid(self, count, pitch):
         self.count = count
@@ -250,11 +250,13 @@ class Optimizer:
         # Return results
         return H, P, Ps
 
-    def clip_height(self, height, fuzz):
+    def clip_height(self, height, fuzz, h_max=None):
+        if h_max is None:
+            h_max = self.h_max
         if isinstance(height, torch.Tensor):
-            return soft_clip(height, self.h_max, fuzz * self.h_max)
+            return soft_clip(height, h_max, fuzz * h_max)
         height = torch.tensor(height, device=self.device, dtype=torch.float32)
-        height_clipped = self.clip_height(height, fuzz)
+        height_clipped = self.clip_height(height, fuzz, h_max)
         return height_clipped.detach().cpu().numpy()
 
     def run(self, height):
