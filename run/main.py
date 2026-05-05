@@ -129,6 +129,7 @@ if __name__ == '__main__':
     optimizer = Optimizer(exp)
     height = optimizer.init_height()
     height = optimizer.run(height)
+    exp.add_parameter(f"height.{count}", height.tolist())
     while count < exp.grid.countFinal:
         count *= 2
         pitch /= 2
@@ -137,10 +138,9 @@ if __name__ == '__main__':
         height = optimizer.clip_height(height, 0.01)
         optimizer.set_grid(count, pitch)
         height = optimizer.run(height)
+        exp.add_parameter(f"height.{count}", height.tolist())
 
     # Store result
-    if height is not None:
-        path = "result.json"
-        exp.add_parameter("height", height.tolist())
-        exp.write(path)
-        logger.info(f"Optimization result stored in {path}")
+    path = "result.json"
+    exp.write(path)
+    logger.info(f"Optimization result stored in {path}")

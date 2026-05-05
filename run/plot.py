@@ -166,7 +166,7 @@ if __name__ == "__main__":
         print(f"Interpolated height profile ({count_fab} pixels):")
         height_fab = optimizer.interpolate_height(height, count_fab)
         print(f"    Heights: {np.min(height_fab):.2} - {np.min(height_fab):.2} µm")
-        #height_fab = optimizer.clip_height(height_fab, 0.01)
+        height_fab = optimizer.clip_height(height_fab, 0.01)
         store_height_profile(height_fab, 0.0001, profile_path)
         store_height_plot(height_fab, pitch_fab, cmap, name, "ip", height_path)
 
