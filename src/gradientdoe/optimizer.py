@@ -241,7 +241,11 @@ class Optimizer:
         return H, P, Ps
 
     def clip_height(self, height, fuzz):
-        return soft_clip(height, self.h_max, fuzz * self.h_max)
+        if isinstance(height, torch.Tensor):
+            return soft_clip(height, self.h_max, fuzz * self.h_max)
+        height = torch.tensor(height, device=self.device, dtype=torch.float32)
+        height_clipped = self.clip_height(height, fuzz)
+        return height_clipped.detach().cpu().numpy()
 
     def run(self, height):
         logger.debug("Starting Optimization")
