@@ -268,7 +268,8 @@ class Optimizer:
         # height_raw = torch.randn((N, N), device=self.device, dtype=torch.float32, requires_grad=True)
 
         # Initialize optimiser target
-        self.h_max = np.max(height)
+        self.h_max = float(max(np.max(height), self.exp.doe.maxHeight))
+        print(self.h_max, self.exp.doe.maxHeight)
         height_raw = torch.tensor(self.get_raw(height), device=self.device, dtype=torch.float32, requires_grad=True)
         best_raw = height_raw.detach().clone()
         # best_height = height.copy()
@@ -315,7 +316,7 @@ class Optimizer:
             optimizer.step()
 
             h_max = self.h_max - self.exp.optimizer.maxHeightFactor * (self.h_max - self.exp.doe.maxHeight)
-            self.h_max = max(h_max, self.exp.doe.maxHeight)
+            self.h_max = float(max(h_max, self.exp.doe.maxHeight))
             delta_h = self.h_max - self.exp.doe.maxHeight
 
             # EMA smoothing step
