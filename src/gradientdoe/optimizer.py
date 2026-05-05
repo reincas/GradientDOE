@@ -112,7 +112,6 @@ class Optimizer:
     count: int
     pitch: float
     sensor: SensorArray
-    weight_distance: torch.Tensor
     sensor_masks: torch.Tensor
     asm: AngularSpectrumMethod
 
@@ -153,8 +152,6 @@ class Optimizer:
         self.count = count
         self.pitch = pitch
         self.sensor.set_grid(count, pitch)
-        weight = self.sensor.next_distance / self.sensor.diameter
-        self.weight_distance = torch.tensor(weight, device=self.device, dtype=torch.float32)
         self.sensor_masks = torch.tensor(self.sensor.masks, device=self.device, dtype=torch.float32)  # (Ns, N, N)
         self.asm = AngularSpectrumMethod(count, pitch, self.exp.setup.distance, self.exp.setup.wavelengths, self.device)
 
@@ -285,12 +282,8 @@ class Optimizer:
             P_eta = -torch.log((P.mean(dim=1)).sum() / self.count ** 2 + 1e-9)
             l_eta = opt.weightEta * P_eta
 
-            # Loss function for centering the light on the sensors
-            mean_distance = 0.0  # torch.sum(H.sum(dim=2) * self.weight_distance) / H.sum()
-            l_center = opt.weightCenter * mean_distance
-
             # Total loss function with weights
-            loss = l_ortho + l_eta + l_center
+            loss = l_ortho + l_eta
 
             # Backpropagation
             loss.backward()
@@ -300,7 +293,7 @@ class Optimizer:
             if ema.step(loss.item()):
                 best_height = height_clipped.detach().cpu().numpy()
                 P_over = P.mean() / (self.count ** 2 * self.sensor.area_ratio)
-                log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} | {l_center:7.2f} || {S_rel:7.3f} | {P_over:7.3f} | {mean_distance:7.3f}"
+                log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} || {S_rel:7.3f} | {P_over:7.3f}"
 
             # Logging
             if ema.has_finished or time.time() - t > 2:
