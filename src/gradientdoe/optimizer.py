@@ -158,7 +158,9 @@ class Optimizer:
 
     def init_height(self):
         """ Return random height profile in the range [0.25 * h_max, 0.75 * h_max]. """
-        return (np.random.rand(self.count, self.count) + 0.5) * 0.5 * self.h_max
+        height = (np.random.rand(self.count, self.count) + 0.5) * 0.5 * self.h_max
+        logger.debug(f"Initial height profile: {np.min(height):.2f} - {np.max(height):.2f} µm")
+        return height
         # x = torch.rand((self.count, self.count), device=self.device, dtype=torch.float32, requires_grad=True)
         # return x * self.h_max
 
