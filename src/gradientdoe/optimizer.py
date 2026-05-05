@@ -304,21 +304,26 @@ class Optimizer:
             P_eta = -torch.log((P.mean(dim=1)).sum() / self.count ** 2 + 1e-9)
             l_eta = opt.weightEta * P_eta
 
+            # Maximum height
+            l_height = self.h_max - self.exp.doe.maxHeight
+
             # Total loss function with weights
-            loss = l_ortho + l_eta
+            loss = l_ortho + l_eta + l_height
 
             # Backpropagation
             loss.backward()
             optimizer.step()
 
-            self.h_max -= self.exp.optimizer.maxHeightFactor * (self.h_max - self.exp.doe.maxHeight)
+            h_max = self.h_max - self.exp.optimizer.maxHeightFactor * (self.h_max - self.exp.doe.maxHeight)
+            self.h_max = max(h_max, self.exp.doe.maxHeight)
+            delta_h = self.h_max - self.exp.doe.maxHeight
 
             # EMA smoothing step
             if ema.step(loss.item()):
                 # best_height = height_clipped.detach().cpu().numpy()
                 best_raw = height_raw.detach().cpu().numpy()
                 P_over = P.mean() / (self.count ** 2 * self.sensor.area_ratio)
-                log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} || {S_rel:7.3f} | {P_over:7.3f}"
+                log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} || {S_rel:7.3f} | {P_over:7.3f} | {delta_h:7.3f}"
 
             # Logging
             if ema.has_finished or time.time() - t > 2:
