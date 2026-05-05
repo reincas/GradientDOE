@@ -146,7 +146,8 @@ class Optimizer:
                                   device=self.device, dtype=torch.float32)  # (Nk, Ni)
 
         # Maximum height of the DOE profile
-        self.h_max = float(self.exp.doe.maxHeight * self.exp.optimizer.maxHeightFactor)
+        self.h_max = float(self.exp.doe.maxHeight)
+        #self.h_max = float(self.exp.doe.maxHeight * self.exp.optimizer.maxHeightFactor)
 
     def set_grid(self, count, pitch):
         self.count = count
@@ -267,6 +268,7 @@ class Optimizer:
         # height_raw = torch.randn((N, N), device=self.device, dtype=torch.float32, requires_grad=True)
 
         # Initialize optimiser target
+        self.h_max = np.max(height)
         height_raw = torch.tensor(self.get_raw(height), device=self.device, dtype=torch.float32, requires_grad=True)
         best_raw = height_raw.detach().clone()
         # best_height = height.copy()
@@ -308,6 +310,8 @@ class Optimizer:
             # Backpropagation
             loss.backward()
             optimizer.step()
+
+            self.h_max = self.exp.optimizer.maxHeightFactor * (self.h_max - self.exp.doe.maxHeight)
 
             # EMA smoothing step
             if ema.step(loss.item()):
