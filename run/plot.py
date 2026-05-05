@@ -147,7 +147,7 @@ if __name__ == "__main__":
 
     print(f"Optimised height profile ({count} pixels):")
     filepath = "plots/result.png"
-    print(f"    Heights: {np.min(height):.2} - {np.max(height):.2} µm")
+    print(f"    Heights: {np.min(height):.2f} - {np.max(height):.2f} µm")
     store_height_profile(height, 0.0001, profile_path)
     store_height_plot(height, pitch, cmap, name, "opt", height_path)
 
@@ -166,7 +166,7 @@ if __name__ == "__main__":
 
         print(f"Interpolated height profile ({count_fab} pixels):")
         height_fab = optimizer.interpolate_height(height, count_fab)
-        print(f"    Heights: {np.min(height_fab):.2} - {np.max(height_fab):.2} µm")
+        print(f"    Heights: {np.min(height_fab):.2f} - {np.max(height_fab):.2f} µm")
         height_fab = optimizer.clip_height(height_fab, 0.01)
         store_height_profile(height_fab, 0.0001, profile_path)
         store_height_plot(height_fab, pitch_fab, cmap, name, "ip", height_path)
