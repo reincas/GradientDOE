@@ -170,7 +170,7 @@ class Optimizer:
     def get_raw(self, height):
         if isinstance(height, torch.Tensor):
             return torch.logit(height / self.h_max)
-        x = np.clip(height / self.h_max, 1e-9, 1- 1e-9)
+        x = np.clip(height / self.h_max, 1e-8, 1 - 1e-8)
         return np.log(x / (1 - x))
 
     def interpolate_height(self, height, target_count):
@@ -262,18 +262,18 @@ class Optimizer:
         assert isinstance(height, np.ndarray)
 
         # Random initialisation of raw height tensor stretching from -inf to +inf
-        #height_raw = torch.randn((N, N), device=self.device, dtype=torch.float32, requires_grad=True)
+        # height_raw = torch.randn((N, N), device=self.device, dtype=torch.float32, requires_grad=True)
 
         # Initialize optimiser target
         height_raw = torch.tensor(self.get_raw(height), device=self.device, dtype=torch.float32, requires_grad=True)
         best_raw = height_raw.detach().clone()
-        #best_height = height.copy()
-        #height = torch.tensor(height, device=self.device, dtype=torch.float32, requires_grad=True)
+        # best_height = height.copy()
+        # height = torch.tensor(height, device=self.device, dtype=torch.float32, requires_grad=True)
 
         # Initialize optimiser
         opt = self.exp.optimizer
         optimizer = torch.optim.Adam([height_raw], lr=opt.learningRate)
-        #optimizer = torch.optim.Adam([height], lr=opt.learningRate)
+        # optimizer = torch.optim.Adam([height], lr=opt.learningRate)
 
         # Initialize EMA smoothing (exponential moving average)
         ema = self.exp.optimizer.ema
@@ -287,8 +287,8 @@ class Optimizer:
             optimizer.zero_grad()
 
             # Power transfer matrix from DOE to sensor plane
-            #height_clipped = self.clip_height(height, 0.01)
-            #H, P = self.propagate(height_clipped, self.asm, self.count, self.jitter)
+            # height_clipped = self.clip_height(height, 0.01)
+            # H, P = self.propagate(height_clipped, self.asm, self.count, self.jitter)
             H, P = self.propagate(self.get_height(height_raw), self.asm, self.count, self.jitter)
 
             # Loss function for orthogonal solution using singular values of the signal matrix
@@ -309,7 +309,7 @@ class Optimizer:
 
             # EMA smoothing step
             if ema.step(loss.item()):
-                #best_height = height_clipped.detach().cpu().numpy()
+                # best_height = height_clipped.detach().cpu().numpy()
                 best_raw = height_raw.detach().cpu().numpy()
                 P_over = P.mean() / (self.count ** 2 * self.sensor.area_ratio)
                 log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} || {S_rel:7.3f} | {P_over:7.3f}"
@@ -326,7 +326,7 @@ class Optimizer:
                     break
 
         if ema.has_finished:
-            #height = best_height
+            # height = best_height
             height = self.get_height(best_raw)
         else:
             height = None
