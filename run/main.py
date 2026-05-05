@@ -6,6 +6,8 @@
 
 import logging
 
+import numpy as np
+
 from gradientdoe.experiment import Experiment
 from gradientdoe.optimizer import Optimizer
 from gradientdoe.spectrum import opt_spectra, show_opt
@@ -131,7 +133,8 @@ if __name__ == '__main__':
         count *= 2
         pitch /= 2
         height = optimizer.interpolate_height(height, count)
-        height = optimizer.clip_height(height, 0.01 * optimizer.h_max)
+        print(f"Interpolation to {count} pixel: height = {np.min(height):.2} - {np.min(height):.2} µm")
+        height = optimizer.clip_height(height, 0.01)
         optimizer.set_grid(count, pitch)
         height = optimizer.run(height)
 

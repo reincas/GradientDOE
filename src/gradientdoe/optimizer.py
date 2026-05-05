@@ -202,7 +202,7 @@ class Optimizer:
 
         # Scale and shift real part
         height = height.real * (M / N) ** 2
-        height -= height.min()
+        #height -= height.min()
 
         # Return interpolated height profile as numpy array
         return height.cpu().numpy()
