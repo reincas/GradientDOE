@@ -171,7 +171,7 @@ class Optimizer:
         if isinstance(height, torch.Tensor):
             return torch.logit(height / self.h_max)
         x = height / self.h_max
-        return np.log(x / (1 - x + 1e-9))
+        return np.log(x / (1 - x - 1e-9))
 
     def interpolate_height(self, height, target_count):
         """ Tensor-based spectral interpolation of a height profile. """
