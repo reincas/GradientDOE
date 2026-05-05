@@ -18,6 +18,14 @@ RS = 0
 STORE_WL = False
 
 
+def get_counts(filename):
+    """ Return sorted list of pixel counts of all height profiles. """
+
+    with h5py.File(filename, "r") as fp:
+        counts = sorted([int(x.split("_", 1)[1]) for x in fp.keys() if x.startswith("height_")])
+    return list(counts)
+
+
 def read_height(filename, count=None):
     """ Read given (or largest) height profile. """
 
@@ -133,43 +141,43 @@ if __name__ == "__main__":
     # Initialise optimizer and load height profile
     exp = Experiment.read("result.json")
     optimizer = Optimizer(exp)
-    height = read_height("result.h5")
 
-    pitch = exp.grid.pitch
-    count = exp.grid.count
-    M = height.shape[0] // count
-    count *= M
-    pitch /= M
+    height_path = "result.h5"
+    for count in get_counts(height_path):
+        height = read_height("result.h5", count)
+        assert height.shape[0] == count
+        M = count // exp.grid.count
+        pitch = exp.grid.pitch / M
 
-    print(f"Height profile:")
-    print(f"    Grid pitch: {pitch:.1f} µm")
-    print(f"    Grid count: {count}")
-    print(f"    Distance: {exp.setup.distance / 1000:.1f} mm")
+        print(f"Height profile:")
+        print(f"    Grid pitch: {pitch:.1f} µm")
+        print(f"    Grid count: {count}")
+        print(f"    Distance: {exp.setup.distance / 1000:.1f} mm")
 
-    # Prepare diagram formatting and storage
-    cmap = "viridis"
-    # cmap = "inferno"
-    height_path = "plots/height_{0}_{1}.png"
-    power_path = "plots/power_{0}_{1}.png"
-    spectrum_path = "plots/spectrum_{0}_{1}.png"
-    profile_path = "plots/profile_{0}.png"
-    name = exp.doe.material.model
-    names = [x.model for x in exp.setup.sources]
+        # Prepare diagram formatting and storage
+        cmap = "viridis"
+        # cmap = "inferno"
+        height_path = "plots/height_{0}_{1}.png"
+        power_path = "plots/power_{0}_{1}.png"
+        spectrum_path = "plots/spectrum_{0}_{1}.png"
+        profile_path = "plots/profile_{0}.png"
+        name = exp.doe.material.model
+        names = [x.model for x in exp.setup.sources]
 
-    print(f"Optimised height profile ({count} pixels):")
-    filepath = "plots/result.png"
-    print(f"    Heights: {np.min(height):.2f} - {np.max(height):.2f} µm")
-    store_height_profile(height, 0.0001, profile_path)
-    store_height_plot(height, pitch, cmap, name, "opt", height_path)
+        print(f"Optimised height profile ({count} pixels):")
+        filepath = "plots/result.png"
+        print(f"    Heights: {np.min(height):.2f} - {np.max(height):.2f} µm")
+        store_height_profile(height, 0.0001, profile_path)
+        store_height_plot(height, pitch, cmap, name, "opt", height_path)
 
-    optimizer.set_grid(count, pitch)
-    H, P, Ps = optimizer.step(height, optimizer.asm, count)
-    print("    " + str(P.T).replace("\n", "\n    "))
-    store_power_plots(Ps, P, pitch, optimizer.sensor, cmap, names, "opt", power_path)
+        optimizer.set_grid(count, pitch)
+        H, P, Ps = optimizer.step(height, optimizer.asm, count)
+        print("    " + str(P.T).replace("\n", "\n    "))
+        store_power_plots(Ps, P, pitch, optimizer.sensor, cmap, names, "opt", power_path)
 
-    if STORE_WL:
-        names = [f"{lam * 1000:.3f} nm" for lam in optimizer.doe.wavelengths]
-        store_power_plots(H, None, pitch, optimizer.sensor, cmap, names, "opt", spectrum_path)
+        if STORE_WL:
+            names = [f"{lam * 1000:.3f} nm" for lam in optimizer.doe.wavelengths]
+            store_power_plots(H, None, pitch, optimizer.sensor, cmap, names, "opt", spectrum_path)
 
     for M in M_FAB:
         count_fab = count * M
