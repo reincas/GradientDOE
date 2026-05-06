@@ -77,7 +77,7 @@ EXPERIMENT = {
         "weightOrtho": 5.0,
         "expOrtho": 2,
         "weightEta": 50.0,
-        "jitter": True,
+        "jitter": False,
         "ema": {
             "patience": 200,
             "threshold": 1e-4,
