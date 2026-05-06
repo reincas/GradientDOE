@@ -141,6 +141,7 @@ if __name__ == '__main__':
     pitch = exp.grid.pitch
     optimizer = Optimizer(exp)
 
+    height = None
     while count <= exp.grid.countFinal:
         if height is None:
             height = optimizer.init_height()
