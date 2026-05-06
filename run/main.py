@@ -77,7 +77,7 @@ EXPERIMENT = {
         "initialLearningRate": 0.05,
         "finalLearningRate": 0.05,
         "maxHeightFactor": 0.005,
-        "maxHeightThreshold": 0.01,
+        "maxHeightThreshold": 0.005,
         "weightOrtho": 5.0,
         "expOrtho": 2,
         "weightEta": 50.0,
