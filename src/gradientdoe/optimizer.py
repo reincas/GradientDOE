@@ -312,9 +312,6 @@ class Optimizer:
         lr = format(float(format(learning_rate, ".2g")), "f").rstrip('0').rstrip('.')
         logger.debug(f"Learning Rate: {lr}")
 
-        use_checkpoint = self.count >= 2048
-        logger.debug(f"Using checkpoint: {use_checkpoint}")
-
         # Initialize optimiser target
         self.h_max = float(max(np.max(height) * (1 + self.exp.optimizer.maxHeightFactor), self.exp.doe.maxHeight))
         logger.debug(f"Damping maxHeight: {self.h_max:.2f} -> {self.exp.doe.maxHeight:.2f} µm")
@@ -326,6 +323,9 @@ class Optimizer:
         opt = self.exp.optimizer
         optimizer = torch.optim.Adam([height_raw], lr=learning_rate)
         self.mem.tick("adam")
+
+        use_checkpoint = self.count >= opt.checkpointThreshold
+        logger.debug(f"Using checkpoint: {use_checkpoint}")
 
         # Initialize EMA smoothing (exponential moving average)
         ema = self.exp.optimizer.ema
@@ -386,7 +386,7 @@ class Optimizer:
             delta_h = self.h_max - self.exp.doe.maxHeight
 
             # EMA smoothing step
-            if ema.step(loss.item()):
+            if ema.step((l_ortho + l_eta).item()):
                 # best_height = height_clipped.detach().cpu().numpy()
                 best_raw = height_raw.detach().cpu().numpy()
                 P_over = P.mean() / (self.count ** 2 * self.sensor.area_ratio)
@@ -402,7 +402,7 @@ class Optimizer:
                         message += f" || {a / 1024 ** 2:.0f} MB"
                     logger.debug(message)
 
-                if ema.has_finished:
+                if ema.has_finished and l_height < opt.maxHeightThreshold * self.exp.doe.maxHeight:
                     logger.debug(
                         f"Converged [{self.count}]: Improvement < {ema.threshold * 100}% for {ema.patience} iterations.")
                     break
