@@ -85,7 +85,7 @@ EXPERIMENT = {
         "ema": {
             "patience": 200,
             "threshold": 1e-2,
-            "alpha": 0.05,
+            "alpha": 0.1,
             "loss": None,
             "bestLoss": None,
         },

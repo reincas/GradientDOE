@@ -207,9 +207,9 @@ if __name__ == "__main__":
     np.set_printoptions(formatter=cast(Any, {'float': '{: .3f}'.format}), linewidth=120)
 
     # Initialise optimizer and load height profile
-    root = Path("result_01")
+    root = Path("result_04")
     exp = Experiment.read(root / "result.json")
     optimizer = Optimizer(exp)
-    for n in range(7, 13):
+    for n in range(7, 14):
         count = 2 ** n
         plot(optimizer, count, root)
