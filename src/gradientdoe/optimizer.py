@@ -382,7 +382,11 @@ class Optimizer:
             if ema.has_finished or time.time() - t > 2:
                 t = time.time()
                 if log:
-                    logger.debug(f"{self.count:5d} | {i:5d} | {ema.counter:3d} || {log}")
+                    message = f"{self.count:5d} | {i:5d} | {ema.counter:3d} || {log}"
+                    if self.device.type == "cuda":
+                        a = torch.cuda.memory_allocated(0)
+                        message += f" || {a / 1024 ** 2:.0f} MB"
+                    logger.debug(message)
 
                 if ema.has_finished:
                     logger.debug(
