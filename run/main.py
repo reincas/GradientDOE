@@ -140,17 +140,20 @@ if __name__ == '__main__':
     count = exp.grid.count
     pitch = exp.grid.pitch
     optimizer = Optimizer(exp)
-    height = optimizer.init_height()
-    height = optimizer.run(height)
-    write_height(height, count, height_path)
-    while count < exp.grid.countFinal:
-        count *= 2
-        pitch /= 2
-        height = optimizer.interpolate_height(height, count)
+
+    while count <= exp.grid.countFinal:
+        if height is None:
+            height = optimizer.init_height()
+        else:
+            height = optimizer.interpolate_height(height, count)
         optimizer.set_grid(count, pitch)
         height = optimizer.run(height)
         write_height(height, count, height_path)
 
-    # Store result
-    exp.write(result_path)
-    logger.info(f"Optimization parameters stored in {result_path}")
+        # Store result
+        exp.write(result_path)
+        logger.info(f"Optimization parameters stored in {result_path}")
+
+        # Double pixel count
+        count *= 2
+        pitch /= 2
