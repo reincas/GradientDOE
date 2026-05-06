@@ -393,7 +393,7 @@ class Optimizer:
                 t = time.time()
                 if log:
                     message = f"{self.count:5d} | {i:5d} | {ema.counter:3d} || {log}"
-                    if self.device.type == "cuda":
+                    if TRACK_MEM and self.device.type == "cuda":
                         a = torch.cuda.memory_allocated(0)
                         message += f" || {a / 1024 ** 2:.0f} MB"
                     logger.debug(message)
