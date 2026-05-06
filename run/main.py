@@ -82,7 +82,7 @@ EXPERIMENT = {
         "jitter": False,
         "ema": {
             "patience": 200,
-            "threshold": 1e-3,
+            "threshold": 1e-2,
             "alpha": 0.05,
             "loss": None,
             "bestLoss": None,

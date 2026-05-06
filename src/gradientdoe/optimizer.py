@@ -352,6 +352,7 @@ class Optimizer:
 
             # Sensor power matrix (Ns, Ni)
             P = torch.einsum('sxy,xyk,ki->si', self.sensor_masks, U.abs() ** 2, self.power)
+            del U
             if i == 0:
                 self.mem.tick("P", P.numel() * 4)
 
