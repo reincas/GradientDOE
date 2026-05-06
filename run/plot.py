@@ -3,19 +3,38 @@
 # <reinhard.caspary@phoenixd.uni-hannover.de>                            #
 # This program is free software under the terms of the MIT license.      #
 ##########################################################################
+
 import h5py
+import math
 from matplotlib import pyplot as plt, patches as patches
 import numpy as np
+from pathlib import Path
 from PIL import Image
 from typing import cast, Any
 
-from gradientdoe.experiment import Experiment
+from gradientdoe.experiment import Experiment, next_power_of_2
 from gradientdoe.optimizer import Optimizer
-from gradientdoe.propagate import RayleighSommerfeldMethod, AngularSpectrumMethod
 
-M_FAB = []  # 2, 4, 8]
-RS = 0
-STORE_WL = False
+
+def get_next_preferred_number(x: float) -> float:
+    """ Return the next larger 1*10^N, 2*10^N, or 5*10^N for a given positive float x. """
+
+    if x <= 0:
+        raise ValueError("x must be a positive float.")
+
+    exponent = math.floor(math.log10(x))
+    fraction = x / (10 ** exponent)
+
+    if fraction <= 1:
+        multiplier = 1
+    elif fraction <= 2:
+        multiplier = 2
+    elif fraction <= 5:
+        multiplier = 5
+    else:
+        multiplier = 10
+
+    return float(multiplier * (10 ** exponent))
 
 
 def get_counts(filename):
@@ -37,7 +56,7 @@ def read_height(filename, count=None):
         return np.array(fp[name])
 
 
-def store_height_plot(height, pitch, cmap, name, method, path):
+def store_height_plot(height, pitch, cmap, name, path):
     """ Stores a visualization of the optimized DOE height profile in microns. """
 
     # Spacial grid
@@ -60,13 +79,11 @@ def store_height_plot(height, pitch, cmap, name, method, path):
     plt.colorbar(im, ax=ax, label=r"Height / $\mu$m")
 
     # Save image figure
-    filepath = path.format(method, f"{count}")
-    plt.savefig(filepath, bbox_inches='tight', dpi=150)
+    plt.savefig(path, bbox_inches='tight', dpi=150)
     plt.close(fig)
-    print(f"    Stored height profile image: {filepath}")
 
 
-def store_power_plots(Ps, P, pitch, sensor, cmap, names, method, path):
+def store_power_plots(Ps, P, pitch, sensor, cmap, names, path):
     """ Stores sensor plane power images. """
 
     # Window edges
@@ -111,108 +128,88 @@ def store_power_plots(Ps, P, pitch, sensor, cmap, names, method, path):
             plt.colorbar(im, ax=ax, label='Power (relative)')
 
     # Save image figure
-    filepath = path.format(method, f"{count}")
-    plt.savefig(filepath, bbox_inches='tight', dpi=150)
+    plt.savefig(path, bbox_inches='tight', dpi=150)
     plt.close(fig)
-    print(f"    Stored sensor power image: {filepath}")
 
 
-def store_height_profile(height, step_size, path):
+def store_height_profile(height, path):
     """ Store the height profile as a 16-bit PNG. """
 
-    # Represent height profile as integer
-    h_scaled = np.round(height / step_size)
-    h_int16 = np.clip(h_scaled, 0, 2 ** 16 - 1).astype(np.uint16)
-
-    # Store image
-    img = Image.fromarray(h_int16)
-    count = height.shape[0]
-    filepath = path.format(f"{count}")
-    img.save(filepath, format="PNG", compress_level=6)
-    print(f"    Fabrication file: {filepath}")
-    print(f"    Maximum height: {np.max(height):.2f} µm")
-    print(f"    Maximum value: {np.max(h_int16)}")
+    step_size = get_next_preferred_number(np.max(height) / (2 ** 16 - 1))
+    h_int16 = np.round(height / step_size).astype(np.uint16)
     assert np.max(h_int16) < 2 ** 16 - 1
+
+    img = Image.fromarray(h_int16)
+    img.save(path, format="PNG", compress_level=6)
+    return step_size
+
+
+def plot(optimizer, count, root):
+    exp = optimizer.exp
+    if not isinstance(root, Path):
+        root = Path(root)
+
+    # Height profile
+    height_path = root / "result.h5"
+    counts = get_counts(height_path)
+    if count in counts:
+        height = read_height(height_path, count)
+        print(f"Optimised height profile:")
+    else:
+        assert count == next_power_of_2(count), f"Pixel count {count} is not a power of 2."
+        assert count > max(counts)
+        count_opt = max(counts)
+        height_opt = read_height(height_path, count_opt)
+        height = optimizer.interpolate_height(height_opt, count)
+        print(f"Interpolated height profile:")
+
+    # Pixel pitch
+    M = count // exp.grid.count
+    pitch = exp.grid.pitch / M
+    print(f"    Pixel pitch:     {pitch:.1f} µm")
+    print(f"    Pixel count:     {count}")
+    print(f"    Sensor distance: {exp.setup.distance / 1000:.1f} mm")
+    print(f"    Heights:         {np.min(height):.2f} - {np.max(height):.2f} µm")
+
+    # Prepare diagram formatting
+    cmap = "viridis"
+    # cmap = "inferno"
+
+    # Store height profile as 16-bit PNG image
+    path = root / f"profile_{count}.png"
+    step_size = store_height_profile(height, path)
+    print(f"    Stored fabrication file: {path} with step size: {step_size} µm")
+
+    # Store height profile as plot
+    name = exp.doe.material.model
+    path = root / f"height_{count}.png"
+    store_height_plot(height, pitch, cmap, name, path)
+    print(f"    Stored height profile image: {path}")
+
+    # Sensor power for every specimen
+    optimizer.set_grid(count, pitch)
+    H, P, Ps = optimizer.step(height, optimizer.asm, count)
+    names = [x.model for x in exp.setup.sources]
+    assert len(names) == P.shape[1]
+    size = max(len(name) for name in names)
+    fmt = f"    {{0:{size}s}}: {{1}}"
+    for i, name in enumerate(names):
+        values = ", ".join(f"{x:6.3f}" for x in P[:, i])
+        print(fmt.format(name, values))
+
+    # Store power image with sensor outlines
+    path = root / f"power_{count}.png"
+    store_power_plots(Ps, P, pitch, optimizer.sensor, cmap, names, path)
+    print(f"    Stored sensor power image: {path}")
 
 
 if __name__ == "__main__":
     np.set_printoptions(formatter=cast(Any, {'float': '{: .3f}'.format}), linewidth=120)
 
     # Initialise optimizer and load height profile
-    exp = Experiment.read("result.json")
+    root = Path("result_01")
+    exp = Experiment.read(root / "result.json")
     optimizer = Optimizer(exp)
-
-    height_path = "result.h5"
-    for count in get_counts(height_path):
-        height = read_height("result.h5", count)
-        assert height.shape[0] == count
-        M = count // exp.grid.count
-        pitch = exp.grid.pitch / M
-
-        print(f"Height profile:")
-        print(f"    Grid pitch: {pitch:.1f} µm")
-        print(f"    Grid count: {count}")
-        print(f"    Distance: {exp.setup.distance / 1000:.1f} mm")
-
-        # Prepare diagram formatting and storage
-        cmap = "viridis"
-        # cmap = "inferno"
-        height_path = "plots/height_{0}_{1}.png"
-        power_path = "plots/power_{0}_{1}.png"
-        spectrum_path = "plots/spectrum_{0}_{1}.png"
-        profile_path = "plots/profile_{0}.png"
-        name = exp.doe.material.model
-        names = [x.model for x in exp.setup.sources]
-
-        print(f"Optimised height profile ({count} pixels):")
-        filepath = "plots/result.png"
-        print(f"    Heights: {np.min(height):.2f} - {np.max(height):.2f} µm")
-        store_height_profile(height, 0.0001, profile_path)
-        store_height_plot(height, pitch, cmap, name, "opt", height_path)
-
-        optimizer.set_grid(count, pitch)
-        H, P, Ps = optimizer.step(height, optimizer.asm, count)
-        print("    " + str(P.T).replace("\n", "\n    "))
-        store_power_plots(Ps, P, pitch, optimizer.sensor, cmap, names, "opt", power_path)
-
-        if STORE_WL:
-            names = [f"{lam * 1000:.3f} nm" for lam in optimizer.doe.wavelengths]
-            store_power_plots(H, None, pitch, optimizer.sensor, cmap, names, "opt", spectrum_path)
-
-    for M in M_FAB:
-        count_fab = count * M
-        pitch_fab = pitch / M
-
-        print(f"Interpolated height profile ({count_fab} pixels):")
-        height_fab = optimizer.interpolate_height(height, count_fab)
-        print(f"    Heights: {np.min(height_fab):.2f} - {np.max(height_fab):.2f} µm")
-        # height_fab = optimizer.clip_height(height_fab, 1e-8, exp.doe.maxHeight)
-        store_height_profile(height_fab, 0.0001, profile_path)
-        store_height_plot(height_fab, pitch_fab, cmap, name, "ip", height_path)
-
-        print(f"    ASM propagation")
-        optimizer.set_grid(count_fab, pitch_fab)
-        H, P, Ps = optimizer.step(height_fab, optimizer.asm, count_fab)
-        print("    " + str(P.T).replace("\n", "\n    "))
-        store_power_plots(Ps, P, pitch_fab, optimizer.sensor, cmap, names, "asm", power_path)
-
-        if RS:
-            count_out = count_fab
-            pitch_out = pitch_fab
-
-            print(f"    RS propagation")
-            optimizer.set_grid(count_out, pitch_out)
-            rs = RayleighSommerfeldMethod(pitch_fab, pitch_out, exp.setup.distance, optimizer.doe.wavelengths,
-                                          optimizer.device)
-            H, P, Ps = optimizer.step(height_fab, rs, count_out)
-            print("    " + str(P.T).replace("\n", "\n    "))
-            store_power_plots(Ps, P, pitch_out, optimizer.sensor, cmap, names, "rs", power_path)
-
-    # masks = optimizer.sensor.masks # (Ns, N, N)
-    # power = optimizer.power.detach().cpu().numpy() # (Nk, Nc)
-    # print(count)
-    # print(power.sum(axis=0))
-    # print(np.einsum("sij->s", masks) / count ** 2)
-    # print(np.einsum("ijk->k", H))
-    # print(np.einsum("sij,ijk->sk", masks, H))
-    # print(np.einsum("sij,ijk,kc->sc", masks, H, power))
+    for n in range(7, 13):
+        count = 2 ** n
+        plot(optimizer, count, root)
