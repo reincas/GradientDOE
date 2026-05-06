@@ -5,6 +5,7 @@
 ##########################################################################
 
 import json
+import numpy as np
 
 
 class Parameter:
@@ -38,6 +39,9 @@ class Parameter:
 
     def _force_json(self, value):
         """ Convert value into a JSON-serializable object. """
+
+        if isinstance(value, np.floating):
+            return float(value)
 
         if isinstance(value, dict):
             return Parameter(value)

@@ -144,12 +144,12 @@ class Experiment(Parameter):
         logger.debug(f"    Sensor distance: {z * 1e-3:.3f} mm")
 
         self.doe.material = IndexSpectrum(material, wavelengths)
-        mean = np.mean(np.array(self.doe.material.values))
+        mean = np.mean(np.array(self.doe.material.values, dtype=np.float32))
         logger.debug(f"    Mean refractive index: {mean:.4f}")
 
         model = "a2A3536-31umBAS"
         eta = Spectrum.read(f"../sensors/{model}.json")
         eta = spectra[0].interpolate(eta)
         self.sensor.eta = eta
-        mean = np.mean(np.array(self.sensor.eta.values))
+        mean = np.mean(np.array(self.sensor.eta.values, dtype=np.float32))
         logger.debug(f"    Mean sensor efficiency: {mean:.3f}")

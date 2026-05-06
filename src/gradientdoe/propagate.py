@@ -47,12 +47,12 @@ def spectral_kernels(pixel_count, pixel_size, z, wavelengths, f_kernel):
     Nk = len(wavelengths)
 
     # Spatial frequency grid mesh from -1/(2p) to 1/(2p)
-    f = np.fft.fftfreq(N, d=p)
+    f = np.fft.fftfreq(N, d=p, dtype=np.float32)
     fx, fy = np.meshgrid(f, f)
     f_sq = fx ** 2 + fy ** 2
 
     # Initialize phase transfer kernels
-    kernels = np.empty((N, N, Nk), dtype=complex)
+    kernels = np.empty((N, N, Nk), dtype=np.complex64)
 
     # Calculate kernel for each wavelength
     for i, lam in enumerate(wavelengths):
@@ -80,9 +80,14 @@ class AngularSpectrumMethod:
         if z < zc:
             raise ValueError(f"Propagation distance {z:.0f} µm below minimum for given grid ({zc:.0f} µm).")
 
-        # Spatial frequency grid exponent (used for jitter in the function propagate)
+        # Spatial frequency grid exponent
+        # Dimension hint:    complex(N)
+        # Memory allocation: 128 kB for N = 8k
         self.fexp = -2j * torch.pi * torch.fft.fftfreq(pixel_count, device=self.device)
 
+        # Pre-calculation of spectral kernels
+        # Dimension hint:    complex(N, N, Nk)
+        # Memory allocation: 2.25 GB for N = 8k, Nk = 9
         if kernel == "ETF":
             f_kernel = etf_kernel
         elif kernel.upper() == "FTF":
@@ -92,35 +97,50 @@ class AngularSpectrumMethod:
         self.kernels = torch.tensor(spectral_kernels(pixel_count, pixel_pitch, z, wavelengths, f_kernel),
                                     device=self.device, dtype=torch.complex64)
 
+        # Default is no jitter
         self.phase_jitter = 1
 
     def update_jitter(self, jitter):
+
+        # Dimension hint: complex(N, N)
+        # Memory allocation: 1 GB for N = 8k
         if jitter:
-            shift_x = torch.rand(1, device=self.device) - 0.5
-            shift_y = torch.rand(1, device=self.device) - 0.5
+            shift_x = torch.rand(1, device=self.device, dtype=torch.float32) - 0.5
+            shift_y = torch.rand(1, device=self.device, dtype=torch.float32) - 0.5
             ramp_x = torch.exp(self.fexp * shift_x)
             ramp_y = torch.exp(self.fexp * shift_y)
             self.phase_jitter = ramp_y[:, None] * ramp_x
         else:
             self.phase_jitter = 1
 
-    def propagate(self, Uo, Us, jitter, k_select=None):
-        """ Propagate source field Uo to image field Us for the given set of wavelength indices. Default is all
-        wavelengths. Add a grid jitter if jitter == True. """
-
-        assert Us.shape == Uo.shape, f"{Us.shape} != {Uo.shape}"
-
-        # Default is all wavelengths
-        if not k_select:
-            k_select = range(Uo.shape[2])
+    def propagate(self, Uo, jitter):
+        """ Propagate source field Uo to image field Us. Add a grid jitter if jitter == True. """
 
         # Prepare optional random spectral ramp, equal to lateral jitter of the spatial grid
         self.update_jitter(jitter)
 
-        # Calculate image field for each wavelength
-        for k in k_select:
-            Uf = torch.fft.fft2(Uo[:, :, k])
-            Us[:, :, k] = torch.fft.ifft2(Uf * self.phase_jitter * self.kernels[:, :, k])
+        # Calculate image field
+        # Memory allocation peak: 2.25 GB for N = 8k, Nk = 9
+        Uf = torch.fft.fft2(Uo, dim=(0, 1))
+        return torch.fft.ifft2(Uf * self.phase_jitter[:, :, None] * self.kernels, dim=(0, 1))
+
+    # def propagate(self, Uo, Us, jitter, k_select=None):
+    #     """ Propagate source field Uo to image field Us for the given set of wavelength indices. Default is all
+    #     wavelengths. Add a grid jitter if jitter == True. """
+    #
+    #     assert Us.shape == Uo.shape, f"{Us.shape} != {Uo.shape}"
+    #
+    #     # Default is all wavelengths
+    #     if not k_select:
+    #         k_select = range(Uo.shape[2])
+    #
+    #     # Prepare optional random spectral ramp, equal to lateral jitter of the spatial grid
+    #     self.update_jitter(jitter)
+    #
+    #     # Calculate image field for each wavelength
+    #     for k in k_select:
+    #         Uf = torch.fft.fft2(Uo[:, :, k])
+    #         Uo[:, :, k] = torch.fft.ifft2(Uf * self.phase_jitter * self.kernels[:, :, k])
 
 
 ##########################################################################

@@ -217,13 +217,11 @@ class Optimizer:
         # Propagate field from DOE to sensor plane
         Uo = self.doe.fields_from_height(height)
         Nk = Uo.shape[2]
-        Us = torch.empty((count_s, count_s, Nk), dtype=torch.complex64, device=self.device)
-        method.propagate(Uo, Us, jitter)
-        # print(f"Power in:  {torch.sum(torch.abs(Uo) ** 2) / Uo.numel()}", Uo.shape)
-        # print(f"Power out: {torch.sum(torch.abs(Us) ** 2) / Us.numel()}", Us.shape)
+        #Us = torch.empty((count_s, count_s, Nk), dtype=torch.complex64, device=self.device)
+        Uo = method.propagate(Uo, jitter)
 
         # Power matrix for all wavelengths
-        H = Us.abs() ** 2
+        H = Uo.abs() ** 2
 
         # Contract to signal matrix P (Ns, Ni)
         P_sk = torch.einsum('sij,ijk->sk', self.sensor_masks, H)

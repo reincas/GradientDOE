@@ -5,10 +5,9 @@
 ##########################################################################
 
 import logging
-from typing import cast, Any
-
 import numpy as np
 from scipy.interpolate import PchipInterpolator
+from typing import cast, Any
 
 from .convert import convert_factor
 from .parameter import Parameter
@@ -72,7 +71,7 @@ class Spectrum(Parameter):
         assert isinstance(other, Spectrum)
 
         factor = convert_factor(other.unit, self.unit, "m")
-        other_wavelengths = np.array(other.wavelengths) * factor
+        other_wavelengths = np.array(other.wavelengths, dtype=np.float32) * factor
         interpolate = PchipInterpolator(other_wavelengths, other.values)
         values = interpolate(self.wavelengths)
 
@@ -93,7 +92,7 @@ class Source(Spectrum):
             assert self.type == "filter"
             assert isinstance(source, Source)
             source.interpolate(self)
-            values = np.array(self.values) * source.values
+            values = np.array(self.values, dtype=np.float32) * source.values
             self.data = list(zip(self.wavelengths, values))
             self.type = "source"
             self.model = f"{source.model} | {self.model}"
@@ -129,20 +128,20 @@ class IndexSpectrum(Spectrum):
             assert len(wavelengths) == 1
         elif isinstance(wavelengths, Spectrum):
             spectrum = wavelengths
-            wavelengths = np.array(spectrum.wavelengths)
+            wavelengths = np.array(spectrum.wavelengths, dtype=np.float32)
             if spectrum.unit != self.unit:
                 factor = convert_factor(spectrum.unit, self.unit, "m")
                 wavelengths *= factor
         else:
             assert isinstance(wavelengths, list), type(wavelengths)
-            wavelengths = np.array(wavelengths)
+            wavelengths = np.array(wavelengths, dtype=np.float32)
 
         lam2 = wavelengths ** 2
         if self.unit != self.sellmeier.unit:
             factor = convert_factor(self.unit, self.sellmeier.unit, "m")
             lam2 *= factor ** 2
 
-        values = np.ones(len(wavelengths), dtype=float)
+        values = np.ones(len(wavelengths), dtype=np.float32)
         for i in range(1, 4):
             Bi = getattr(self.sellmeier, f"B{i}")
             Ci = getattr(self.sellmeier, f"C{i}")
@@ -172,8 +171,8 @@ def opt_spectra(source, models, coverage):
         spectra[model] = spectrum
 
     # Extract wavelengths and intensities
-    wavelengths = np.array(source.wavelengths, dtype=float)
-    intensities = np.zeros((source.size, len(models)), dtype=float)
+    wavelengths = np.array(source.wavelengths, dtype=np.float32)
+    intensities = np.empty((source.size, len(models)), dtype=np.float32)
     for i, model in enumerate(models):
         intensities[:, i] = spectra[model].values
 
@@ -182,7 +181,7 @@ def opt_spectra(source, models, coverage):
     indices = np.argsort(max_intensity)
 
     # Reorder wavelengths and spectra by importance
-    wavelengths = np.array(wavelengths)[indices]
+    wavelengths = np.array(wavelengths, dtype=np.float32)[indices]
     max_intensity = max_intensity[indices]
     intensities = intensities[indices, :]
 

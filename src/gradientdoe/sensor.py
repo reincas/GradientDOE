@@ -35,8 +35,8 @@ class SensorArray:
         """ Get center coordinates of all sensors. """
 
         # Center positions of the sensor array
-        x_center = (np.arange(self.count_x) - (self.count_x - 1) / 2) * self.pitch
-        y_center = (np.arange(self.count_y) - (self.count_y - 1) / 2) * self.pitch
+        x_center = (np.arange(self.count_x, dtype=np.float32) - (self.count_x - 1) / 2) * self.pitch
+        y_center = (np.arange(self.count_y, dtype=np.float32) - (self.count_y - 1) / 2) * self.pitch
 
         # List or sensor coordinates
         centers = []
@@ -54,14 +54,14 @@ class SensorArray:
 
         # Mesh grid of coordinates
         limit = (count * pitch) / 2
-        coords = np.linspace(-limit, limit, count)
+        coords = np.linspace(-limit, limit, count, dtype=np.float32)
         x, y = np.meshgrid(coords, coords)
 
         # Sensor center coordinates
         Ns = len(self.centers)
 
         # Build distance stack
-        distance = np.zeros((Ns, count, count), dtype=float)
+        distance = np.empty((Ns, count, count), dtype=np.float32)
         for s in range(Ns):
             xc, hc = self.centers[s]
             distance[s] = np.sqrt((x - xc) ** 2 + (y - hc) ** 2)
@@ -73,7 +73,7 @@ class SensorArray:
         """ Generate a 3D stack of fuzzy sensor masks. """
 
         # Build fuzzy masks
-        masks = np.empty(self.distance.shape, dtype=float)
+        masks = np.empty(self.distance.shape, dtype=np.float32)
         Ns = masks.shape[0]
         for s in range(Ns):
             r = self.distance[s]
