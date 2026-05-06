@@ -145,7 +145,7 @@ if __name__ == '__main__':
 
     initial_learning_rate = exp.optimizer.initialLearningRate
     final_learning_rate = exp.optimizer.finalLearningRate
-    rate_base = 10 ** (math.log(final_learning_rate / initial_learning_rate) / (steps - 1))
+    rate_base = 10 ** (math.log10(final_learning_rate / initial_learning_rate) / (steps - 1))
 
     height = None
     i = 0
