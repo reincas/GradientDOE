@@ -47,7 +47,7 @@ def spectral_kernels(pixel_count, pixel_size, z, wavelengths, f_kernel):
     Nk = len(wavelengths)
 
     # Spatial frequency grid mesh from -1/(2p) to 1/(2p)
-    f = np.fft.fftfreq(N, d=p, dtype=np.float32)
+    f = np.fft.fftfreq(N, d=p).astype(np.float32)
     fx, fy = np.meshgrid(f, f)
     f_sq = fx ** 2 + fy ** 2
 
