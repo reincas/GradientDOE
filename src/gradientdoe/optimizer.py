@@ -312,7 +312,7 @@ class Optimizer:
         lr = format(float(format(learning_rate, ".2g")), "f").rstrip('0').rstrip('.')
         logger.debug(f"Learning Rate: {lr}")
 
-        use_checkpoint = self.count >= 4096
+        use_checkpoint = self.count >= 2048
         logger.debug(f"Using checkpoint: {use_checkpoint}")
 
         # Initialize optimiser target
