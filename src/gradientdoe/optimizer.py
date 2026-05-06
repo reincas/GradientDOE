@@ -245,9 +245,12 @@ class Optimizer:
         height_clipped = self.clip_height(height, fuzz, h_max)
         return height_clipped.detach().cpu().numpy()
 
-    def run(self, height):
+    def run(self, height, learning_rate):
         logger.debug("Starting Optimization")
         assert isinstance(height, np.ndarray)
+
+        lr = format(float(format(learning_rate, ".2g")), "f").rstrip('0').rstrip('.')
+        logger.debug(f"Learning Rate: {lr}")
 
         # Initialize optimiser target
         self.h_max = float(max(np.max(height) * (1 + self.exp.optimizer.maxHeightFactor), self.exp.doe.maxHeight))
@@ -257,7 +260,7 @@ class Optimizer:
 
         # Initialize optimiser
         opt = self.exp.optimizer
-        optimizer = torch.optim.Adam([height_raw], lr=opt.learningRate)
+        optimizer = torch.optim.Adam([height_raw], lr=learning_rate)
 
         # Initialize EMA smoothing (exponential moving average)
         ema = self.exp.optimizer.ema
@@ -284,7 +287,7 @@ class Optimizer:
             l_ortho = opt.weightOrtho * S_rel ** opt.expOrtho
 
             # Power efficiency (P: dim=0 is sensor dim=1 is specimen)
-            P_eta = -torch.log((P.mean(dim=1)).sum() / self.count ** 2 + 1e-9)
+            P_eta = -torch.log(P.mean() / self.count ** 2 + 1e-9)
             l_eta = opt.weightEta * P_eta
 
             # Maximum height

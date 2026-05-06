@@ -6,7 +6,6 @@
 
 import logging
 import math
-
 import numpy as np
 
 from gradientdoe.optimizer import Ema
@@ -71,7 +70,8 @@ class SensorParameter(Parameter):
 
 class OptParameter(Parameter):
     maxLoops: int
-    learningRate: float
+    initialLearningRate: float
+    finalLearningRate: float
     maxHeightFactor: float
     weightOrtho: float
     expOrtho: int

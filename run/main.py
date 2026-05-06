@@ -6,6 +6,7 @@
 
 import h5py
 import logging
+import math
 
 from gradientdoe.experiment import Experiment
 from gradientdoe.optimizer import Optimizer
@@ -37,9 +38,9 @@ MATERIALS = {
 EXPERIMENT = {
     "doe": {
         "material": None,
-        "pitch": 2.0,
+        "pitch": 0.5,
         "pitchUnit": "µm",
-        "count": 1024,
+        "count": 4096,
         "maxHeight": 6,
         "maxHeightUnit": "µm",
     },
@@ -72,7 +73,8 @@ EXPERIMENT = {
     },
     "optimizer": {
         "maxLoops": 1000000,
-        "learningRate": 0.05,
+        "initialLearningRate": 0.1,
+        "finalLearningRate": 0.001,
         "maxHeightFactor": 1e-2,
         "weightOrtho": 5.0,
         "expOrtho": 2,
@@ -140,15 +142,22 @@ if __name__ == '__main__':
     count = exp.grid.count
     pitch = exp.grid.pitch
     optimizer = Optimizer(exp)
+    steps = math.log2(exp.grid.countFinal) - math.log2(count) + 1
+
+    initial_learning_rate = exp.optimizer.initialLearningRate
+    final_learning_rate = exp.optimizer.finalLearningRate
+    rate_factor = math.log(final_learning_rate) / (steps * math.log(initial_learning_rate))
 
     height = None
+    i = 0
     while count <= exp.grid.countFinal:
         if height is None:
             height = optimizer.init_height()
         else:
             height = optimizer.interpolate_height(height, count)
         optimizer.set_grid(count, pitch)
-        height = optimizer.run(height)
+        learning_rate = initial_learning_rate ** (rate_factor * i)
+        height = optimizer.run(height, learning_rate)
         write_height(height, count, height_path)
 
         # Store result
@@ -158,3 +167,4 @@ if __name__ == '__main__':
         # Double pixel count
         count *= 2
         pitch /= 2
+        i += 1
