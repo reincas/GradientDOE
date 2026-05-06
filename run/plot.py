@@ -188,7 +188,7 @@ def plot(optimizer, count, root):
 
     # Sensor power for every specimen
     optimizer.set_grid(count, pitch)
-    H, P, Ps = optimizer.step(height, optimizer.asm, count)
+    P, Ps = optimizer.step(height, optimizer.asm, count)
     names = [x.model for x in exp.setup.sources]
     assert len(names) == P.shape[1]
     size = max(len(name) for name in names)

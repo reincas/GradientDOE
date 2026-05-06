@@ -211,23 +211,21 @@ class Optimizer:
         # Return interpolated height profile as numpy array
         return height.cpu().numpy()
 
-    def propagate(self, height, method, count_s, jitter):
-        """ Differentiable ASM propagation if plane unit input field using PyTorch. """
-
-        # Propagate field from DOE to sensor plane
-        Uo = self.doe.fields_from_height(height)
-        Nk = Uo.shape[2]
-        #Us = torch.empty((count_s, count_s, Nk), dtype=torch.complex64, device=self.device)
-        Uo = method.propagate(Uo, jitter)
-
-        # Power matrix for all wavelengths
-        H = Uo.abs() ** 2
-
-        # Contract to signal matrix P (Ns, Ni)
-        P_sk = torch.einsum('sij,ijk->sk', self.sensor_masks, H)
-        P = torch.matmul(P_sk, self.power)
-
-        return H, P
+    # def propagate(self, height, method, jitter):
+    #     """ Differentiable ASM propagation if plane unit input field using PyTorch. """
+    #
+    #     # Propagate field from DOE to sensor plane
+    #     Uo = self.doe.fields_from_height(height)
+    #     Uo = method.propagate(Uo, jitter)
+    #
+    #     # Power matrix for all wavelengths
+    #     H = Uo.abs() ** 2
+    #
+    #     # Contract to signal matrix P (Ns, Ni)
+    #     P_sk = torch.einsum('sij,ijk->sk', self.sensor_masks, H)
+    #     P = torch.matmul(P_sk, self.power)
+    #
+    #     return H, P
 
     def step(self, height, method, count_s):
         """ Calculate H, P, and Ps for a given physical height profile illuminated by unit fields. """
@@ -241,16 +239,22 @@ class Optimizer:
         # Propagate unit fields to the sensor plane
         N = count_s
         with torch.no_grad():
-            H, P = self.propagate(height_tensor, method, N, jitter=False)
-            Ps = torch.matmul(H, self.power)
+            U = self.doe.fields_from_height(height_tensor)
+            U = method.propagate(U, jitter=False)
+
+            # Power distribution in the sensor plane for all specimen (N, N, Ni)
+            Ps = torch.einsum('xyk,ki->xyi', U.abs() ** 2, self.power)
+
+            # Sensor power vs. specimen matrix (Ns, Ni)
+            P = torch.einsum('sxy,xyi->si', self.sensor_masks, Ps)
+
 
         # Normalise powers as numpy arrays
-        H = H.cpu().numpy() / N ** 2
         P = P.cpu().numpy() / N ** 2
         Ps = Ps.cpu().numpy() / N ** 2
 
         # Return results
-        return H, P, Ps
+        return P, Ps
 
     def clip_height(self, height, fuzz, h_max=None):
         if h_max is None:
@@ -265,21 +269,15 @@ class Optimizer:
         logger.debug("Starting Optimization")
         assert isinstance(height, np.ndarray)
 
-        # Random initialisation of raw height tensor stretching from -inf to +inf
-        # height_raw = torch.randn((N, N), device=self.device, dtype=torch.float32, requires_grad=True)
-
         # Initialize optimiser target
         self.h_max = float(max(np.max(height) * (1 + self.exp.optimizer.maxHeightFactor), self.exp.doe.maxHeight))
         logger.debug(f"Damping maxHeight: {self.h_max:.2f} -> {self.exp.doe.maxHeight:.2f} µm")
         height_raw = torch.tensor(self.get_raw(height), device=self.device, dtype=torch.float32, requires_grad=True)
         best_raw = height_raw.detach().clone()
-        # best_height = height.copy()
-        # height = torch.tensor(height, device=self.device, dtype=torch.float32, requires_grad=True)
 
         # Initialize optimiser
         opt = self.exp.optimizer
         optimizer = torch.optim.Adam([height_raw], lr=opt.learningRate)
-        # optimizer = torch.optim.Adam([height], lr=opt.learningRate)
 
         # Initialize EMA smoothing (exponential moving average)
         ema = self.exp.optimizer.ema
@@ -292,10 +290,12 @@ class Optimizer:
             # Reset gradients
             optimizer.zero_grad()
 
-            # Power transfer matrix from DOE to sensor plane
-            # height_clipped = self.clip_height(height, 0.01)
-            # H, P = self.propagate(height_clipped, self.asm, self.count, self.jitter)
-            H, P = self.propagate(self.get_height(height_raw), self.asm, self.count, self.jitter)
+            # ASM field propagation
+            U = self.doe.fields_from_height(self.get_height(height_raw))
+            U = self.asm.propagate(U, self.jitter)
+
+            # Sensor power matrix (Ns, Ni)
+            P = torch.einsum('sxy,xyk,ki->si', self.sensor_masks, U.abs() ** 2, self.power)
 
             # Loss function for orthogonal solution using singular values of the signal matrix
             S = torch.linalg.svdvals(P)

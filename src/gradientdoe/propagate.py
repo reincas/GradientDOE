@@ -124,24 +124,6 @@ class AngularSpectrumMethod:
         Uf = torch.fft.fft2(Uo, dim=(0, 1))
         return torch.fft.ifft2(Uf * self.phase_jitter[:, :, None] * self.kernels, dim=(0, 1))
 
-    # def propagate(self, Uo, Us, jitter, k_select=None):
-    #     """ Propagate source field Uo to image field Us for the given set of wavelength indices. Default is all
-    #     wavelengths. Add a grid jitter if jitter == True. """
-    #
-    #     assert Us.shape == Uo.shape, f"{Us.shape} != {Uo.shape}"
-    #
-    #     # Default is all wavelengths
-    #     if not k_select:
-    #         k_select = range(Uo.shape[2])
-    #
-    #     # Prepare optional random spectral ramp, equal to lateral jitter of the spatial grid
-    #     self.update_jitter(jitter)
-    #
-    #     # Calculate image field for each wavelength
-    #     for k in k_select:
-    #         Uf = torch.fft.fft2(Uo[:, :, k])
-    #         Uo[:, :, k] = torch.fft.ifft2(Uf * self.phase_jitter * self.kernels[:, :, k])
-
 
 ##########################################################################
 # First Rayleigh-Sommerfeld method
