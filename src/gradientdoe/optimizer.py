@@ -107,6 +107,29 @@ class Ema(Parameter):
     def has_finished(self):
         return self.counter >= self.patience
 
+class MemoryTracker:
+    def __init__(self, device):
+        self.device = device
+        if self.device.type != "cuda":
+            return
+        t = torch.cuda.get_device_properties(0).total_memory
+        r = torch.cuda.memory_reserved(0)
+        a = torch.cuda.memory_allocated(0)
+        logger.debug(f"Total VRAM: {t / 1024 ** 2:.2f} MB")
+        logger.debug(f"Reserved:   {r / 1024 ** 2:.2f} MB")
+        logger.debug(f"Allocated:  {a / 1024 ** 2:.2f} MB")
+        self.allocated = a
+
+    def tick(self, label, expect=None):
+        if self.device.type != "cuda":
+            return
+        a = torch.cuda.memory_allocated(0)
+        diff = a - self.allocated
+        self.allocated = a
+        a = f"{a / 1024 ** 2:.2f} MB"
+        n = f"{diff / 1024 ** 2:.2f} MB"
+        e = f"{expect / 1024 ** 2:.2f} MB"
+        logger.debug(f"{label} | Allocated VRAM: {a} | new: {n} | expected: {e}")
 
 class Optimizer:
     count: int
@@ -116,6 +139,8 @@ class Optimizer:
     asm: AngularSpectrumMethod
 
     def __init__(self, exp):
+        # Total memory allocation: 1408 MB (self.sensor_masks, self.asm.kernels)
+
         self.exp = exp
         self.jitter = exp.optimizer.jitter
 
@@ -126,33 +151,48 @@ class Optimizer:
             logger.debug(f"Device Name: {torch.cuda.get_device_name(0)}")
             major, minor = torch.cuda.get_device_capability(0)
             logger.debug(f"Compute Capability: {major}.{minor}")
-            t = torch.cuda.get_device_properties(0).total_memory
-            r = torch.cuda.memory_reserved(0)
-            a = torch.cuda.memory_allocated(0)
-            f = r - a  # free inside reserved
-            logger.debug(f"Total VRAM: {t / 1024 ** 3:.2f} GB")
-            logger.debug(f"Reserved:   {r / 1024 ** 3:.2f} GB")
-            logger.debug(f"Allocated:  {a / 1024 ** 3:.2f} GB")
+            # t = torch.cuda.get_device_properties(0).total_memory
+            # r = torch.cuda.memory_reserved(0)
+            # a = torch.cuda.memory_allocated(0)
+            # logger.debug(f"Total VRAM: {t / 1024 ** 3:.2f} GB")
+            # logger.debug(f"Reserved:   {r / 1024 ** 3:.2f} GB")
+            # logger.debug(f"Allocated:  {a / 1024 ** 3:.2f} GB")
+        mem = MemoryTracker(self.device)
 
         # Initialise DOE
+        # Memory allocation: ~0
         self.doe = DiffractiveOpticalElement(self.exp.setup.wavelengths, self.exp.doe.material.values, self.device)
+        mem.tick("doe", 0)
 
         # Initialise the sensor array
+        # Memory allocation: 1408 MB (self.sensor_masks, self.asm.kernels)
         self.sensor = SensorArray(self.exp.sensor)
         self.set_grid(self.exp.grid.count, self.exp.grid.pitch)
+        mem.tick("sensor", self.sensor_masks.numel() * 4 + self.asm.kernels.numel() * 8)
 
         # Spectra of all specimen weighted by spectral sensor efficiency
+        # Dimension hint:    float(Nk, Ni)
+        # Memory allocation: 108 B = 9 * 3 * 4 (self.power)
         self.power = torch.tensor(power_spectra(self.exp.setup, self.exp.sensor),
-                                  device=self.device, dtype=torch.float32)  # (Nk, Ni)
+                                  device=self.device, dtype=torch.float32)
+        mem.tick("power", self.power.numel() * 4)
 
         # Maximum height of the DOE profile
         self.h_max = float(self.exp.doe.maxHeight)
 
     def set_grid(self, count, pitch):
+        # Total memory allocation: 1408 MB (self.sensor_masks, self.asm.kernels)
+
         self.count = count
         self.pitch = pitch
         self.sensor.set_grid(count, pitch)
-        self.sensor_masks = torch.tensor(self.sensor.masks, device=self.device, dtype=torch.float32)  # (Ns, N, N)
+
+        # Dimension hint:    float(Ns, N, N)
+        # Memory allocation: 256 MB = 4 * 4k * 4k * 4 (self.sensor_masks)
+        self.sensor_masks = torch.tensor(self.sensor.masks, device=self.device, dtype=torch.float32)
+
+        # Dimension hint:    complex(N, N, Nk)
+        # Memory allocation: 1152 MB = 4k * 4k * 9 * 8 (self.asm.kernels)
         self.asm = AngularSpectrumMethod(count, pitch, self.exp.setup.distance, self.exp.setup.wavelengths, self.device)
 
     def init_height(self):
@@ -212,6 +252,8 @@ class Optimizer:
         """ Calculate H, P, and Ps for a given physical height profile illuminated by unit fields. """
 
         # Prepare height tensor
+        # Dimension hint:    float(N, N)
+        # Memory allocation: 64 MB for N = 4k (height_tensor)
         if isinstance(height, torch.Tensor):
             height_tensor = height.to(self.device)
         else:
@@ -290,7 +332,7 @@ class Optimizer:
             P_eta = -torch.log(P.mean() / self.count ** 2 + 1e-9)
             l_eta = opt.weightEta * P_eta
 
-            # Maximum height
+            # Maximum height limit
             l_height = self.h_max - self.exp.doe.maxHeight
 
             # Total loss function with weights

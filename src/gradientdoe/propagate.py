@@ -64,6 +64,8 @@ def spectral_kernels(pixel_count, pixel_size, z, wavelengths, f_kernel):
 
 class AngularSpectrumMethod:
     def __init__(self, pixel_count, pixel_pitch, z, wavelengths, device, kernel="ETF"):
+        # Total memory allocation: 576 MB (self.kernels)
+
         self.pixel_count = pixel_count
         self.pixel_size = pixel_pitch
         self.z = z
@@ -82,12 +84,12 @@ class AngularSpectrumMethod:
 
         # Spatial frequency grid exponent
         # Dimension hint:    complex(N)
-        # Memory allocation: 128 kB for N = 8k
+        # Memory allocation: 32 kB = 4k * 8 (self.fexp)
         self.fexp = -2j * torch.pi * torch.fft.fftfreq(pixel_count, device=self.device)
 
         # Pre-calculation of spectral kernels
         # Dimension hint:    complex(N, N, Nk)
-        # Memory allocation: 2.25 GB for N = 8k, Nk = 9
+        # Memory allocation: 576 MB = 4k * 4k * 9 * 8 (self.kernels)
         if kernel == "ETF":
             f_kernel = etf_kernel
         elif kernel.upper() == "FTF":
@@ -100,18 +102,20 @@ class AngularSpectrumMethod:
     def get_jitter(self):
 
         # Dimension hint: complex(N, N)
-        # Memory allocation: 1 GB for N = 8k
+        # Memory allocation: 128 MB = 4k * 4k * 8 (jitter)
         shift_x = torch.rand(1, device=self.device, dtype=torch.float32) - 0.5
         shift_y = torch.rand(1, device=self.device, dtype=torch.float32) - 0.5
         ramp_x = torch.exp(self.fexp * shift_x)
         ramp_y = torch.exp(self.fexp * shift_y)
-        return ramp_y[:, None] * ramp_x
+        jitter = ramp_y[:, None] * ramp_x
+        return jitter
 
     def propagate(self, Uo, jitter):
         """ Propagate source field Uo to image field Us. Add a grid jitter if jitter == True. """
 
         # Calculate image field
-        # Memory allocation peak: 2.25 GB for N = 8k, Nk = 9
+        # Dimension hint:         complex(N, N, Nk)
+        # Memory allocation peak: 1152 MB = 4k * 4k * 9 * 8 (Uf)
         Uf = torch.fft.fft2(Uo, dim=(0, 1))
         if jitter:
             return torch.fft.ifft2(Uf * self.get_jitter()[:, :, None] * self.kernels, dim=(0, 1))

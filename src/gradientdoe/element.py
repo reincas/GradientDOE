@@ -9,6 +9,8 @@ import torch
 
 class DiffractiveOpticalElement:
     def __init__(self, wavelengths, n, device):
+        # Total memory allocation: ~0
+
         self.device = device
         self.wavelengths = torch.tensor(wavelengths, device=device, dtype=torch.float32)
         self.delta_n = torch.tensor(n, device=device, dtype=torch.float32) - 1
@@ -17,6 +19,6 @@ class DiffractiveOpticalElement:
         """ Return DOE source field height profile. """
 
         # Dimension hint:    float(N, N) -> complex(N, N, k)
-        # Memory allocation: 2.25 GB for N = 8k, Nk = 9
-        phase = (2 * torch.pi / self.wavelengths) * self.delta_n * height[:, :, None]
-        return torch.exp(1j * phase)
+        # Memory allocation: 1152 MB = 4k * 4k * 9 * 8 (U)
+        U = torch.exp(1j * (2 * torch.pi / self.wavelengths) * self.delta_n * height[:, :, None])
+        return U
