@@ -5,11 +5,11 @@
 ##########################################################################
 
 import logging
-import time
-
 import numpy as np
 import psutil
+import time
 import torch
+from torch.utils.checkpoint import checkpoint
 
 from .parameter import Parameter
 from .propagate import AngularSpectrumMethod
@@ -298,6 +298,11 @@ class Optimizer:
     def run(self, height, learning_rate):
         assert isinstance(height, np.ndarray)
 
+        def forward_propagate(h_raw):
+            h = self.get_height(h_raw)
+            U = self.doe.fields_from_height(h)
+            return self.asm.propagate(U, self.jitter)
+
         if self.device.type == "cuda":
             torch.cuda.empty_cache()
 
@@ -328,13 +333,17 @@ class Optimizer:
         for i in range(opt.maxLoops):
 
             # Reset gradients
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
             if i == 0:
                 self.mem.tick("zero")
 
             # ASM field propagation
-            U = self.doe.fields_from_height(self.get_height(height_raw))
-            U = self.asm.propagate(U, self.jitter)
+            #U = self.doe.fields_from_height(self.get_height(height_raw))
+            #U = self.asm.propagate(U, self.jitter)
+            if self.count >= 4096:
+                U = checkpoint(forward_propagate, height_raw, use_reentrant=False)
+            else:
+                U = forward_propagate(height_raw)
             if i == 0:
                 self.mem.tick("U", U.numel() * 8)
 
