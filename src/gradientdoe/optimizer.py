@@ -128,8 +128,11 @@ class MemoryTracker:
         self.allocated = a
         a = f"{a / 1024 ** 2:.2f} MB"
         n = f"{diff / 1024 ** 2:.2f} MB"
-        e = f"{expect / 1024 ** 2:.2f} MB"
-        logger.debug(f"{label} | Allocated VRAM: {a} | new: {n} | expected: {e}")
+        if expect is None:
+            logger.debug(f"*** | {label} | Allocated VRAM: {a} | new: {n}")
+        else:
+            e = f"{expect / 1024 ** 2:.2f} MB"
+            logger.debug(f"*** | {label} | Allocated VRAM: {a} | new: {n} | expected: {e}")
 
 class Optimizer:
     count: int
@@ -148,6 +151,7 @@ class Optimizer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         logger.debug(f"Running on {self.device.type.upper()} with {memory(self.device) / 1024 ** 3:.2f} GB")
         if self.device.type == "cuda":
+            torch.cuda.empty_cache()
             logger.debug(f"Device Name: {torch.cuda.get_device_name(0)}")
             major, minor = torch.cuda.get_device_capability(0)
             logger.debug(f"Compute Capability: {major}.{minor}")
@@ -157,25 +161,25 @@ class Optimizer:
             # logger.debug(f"Total VRAM: {t / 1024 ** 3:.2f} GB")
             # logger.debug(f"Reserved:   {r / 1024 ** 3:.2f} GB")
             # logger.debug(f"Allocated:  {a / 1024 ** 3:.2f} GB")
-        mem = MemoryTracker(self.device)
+        self.mem = MemoryTracker(self.device)
 
         # Initialise DOE
         # Memory allocation: ~0
         self.doe = DiffractiveOpticalElement(self.exp.setup.wavelengths, self.exp.doe.material.values, self.device)
-        mem.tick("doe", 0)
+        self.mem.tick("doe", 0)
 
         # Initialise the sensor array
         # Memory allocation: 1408 MB (self.sensor_masks, self.asm.kernels)
         self.sensor = SensorArray(self.exp.sensor)
         self.set_grid(self.exp.grid.count, self.exp.grid.pitch)
-        mem.tick("sensor", self.sensor_masks.numel() * 4 + self.asm.kernels.numel() * 8)
+        self.mem.tick("sensor", self.sensor_masks.numel() * 4 + self.asm.kernels.numel() * 8)
 
         # Spectra of all specimen weighted by spectral sensor efficiency
         # Dimension hint:    float(Nk, Ni)
         # Memory allocation: 108 B = 9 * 3 * 4 (self.power)
         self.power = torch.tensor(power_spectra(self.exp.setup, self.exp.sensor),
                                   device=self.device, dtype=torch.float32)
-        mem.tick("power", self.power.numel() * 4)
+        self.mem.tick("power", self.power.numel() * 4)
 
         # Maximum height of the DOE profile
         self.h_max = float(self.exp.doe.maxHeight)
