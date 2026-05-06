@@ -17,7 +17,7 @@ from .element import DiffractiveOpticalElement
 from .sensor import SensorArray
 
 logger = logging.getLogger("optimiser")
-TRACK_MEM = False
+TRACK_MEM = True
 
 
 def memory(device):
