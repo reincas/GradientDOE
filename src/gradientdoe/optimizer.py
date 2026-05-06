@@ -129,10 +129,10 @@ class MemoryTracker:
         a = f"{a / 1024 ** 2:.2f} MB"
         n = f"{diff / 1024 ** 2:.2f} MB"
         if expect is None:
-            logger.debug(f"*** | {label} | Allocated VRAM: {a} | new: {n}")
+            logger.debug(f"=== | {label} | Allocated VRAM: {a} | new: {n} | ===")
         else:
             e = f"{expect / 1024 ** 2:.2f} MB"
-            logger.debug(f"*** | {label} | Allocated VRAM: {a} | new: {n} | expected: {e}")
+            logger.debug(f"=== | {label} | Allocated VRAM: {a} | new: {n} | expected: {e} | ===")
 
 class Optimizer:
     count: int
