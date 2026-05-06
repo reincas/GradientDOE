@@ -73,9 +73,9 @@ EXPERIMENT = {
     },
     "optimizer": {
         "maxLoops": 1000000,
-        "initialLearningRate": 0.5,
+        "initialLearningRate": 0.05,
         "finalLearningRate": 0.05,
-        "maxHeightFactor": 1e-2,
+        "maxHeightFactor": 2e-3,
         "weightOrtho": 5.0,
         "expOrtho": 2,
         "weightEta": 50.0,
