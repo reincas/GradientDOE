@@ -18,6 +18,5 @@ class DiffractiveOpticalElement:
 
         # Dimension hint:    float(N, N) -> complex(N, N, k)
         # Memory allocation: 2.25 GB for N = 8k, Nk = 9
-
         phase = (2 * torch.pi / self.wavelengths) * self.delta_n * height[:, :, None]
         return torch.exp(1j * phase)

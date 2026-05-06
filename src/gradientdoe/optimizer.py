@@ -147,7 +147,6 @@ class Optimizer:
 
         # Maximum height of the DOE profile
         self.h_max = float(self.exp.doe.maxHeight)
-        # self.h_max = float(self.exp.doe.maxHeight * self.exp.optimizer.maxHeightFactor)
 
     def set_grid(self, count, pitch):
         self.count = count
@@ -161,8 +160,6 @@ class Optimizer:
         height = (np.random.rand(self.count, self.count) + 0.5) * 0.5 * self.h_max
         logger.debug(f"Initial height profile: {np.min(height):.2f} - {np.max(height):.2f} µm")
         return height
-        # x = torch.rand((self.count, self.count), device=self.device, dtype=torch.float32, requires_grad=True)
-        # return x * self.h_max
 
     def get_height(self, h_raw):
         """ Generate DOE height profile (0...h_max) from raw height tensor (soft constraint). """
@@ -211,22 +208,6 @@ class Optimizer:
         # Return interpolated height profile as numpy array
         return height.cpu().numpy()
 
-    # def propagate(self, height, method, jitter):
-    #     """ Differentiable ASM propagation if plane unit input field using PyTorch. """
-    #
-    #     # Propagate field from DOE to sensor plane
-    #     Uo = self.doe.fields_from_height(height)
-    #     Uo = method.propagate(Uo, jitter)
-    #
-    #     # Power matrix for all wavelengths
-    #     H = Uo.abs() ** 2
-    #
-    #     # Contract to signal matrix P (Ns, Ni)
-    #     P_sk = torch.einsum('sij,ijk->sk', self.sensor_masks, H)
-    #     P = torch.matmul(P_sk, self.power)
-    #
-    #     return H, P
-
     def step(self, height, method, count_s):
         """ Calculate H, P, and Ps for a given physical height profile illuminated by unit fields. """
 
@@ -247,7 +228,6 @@ class Optimizer:
 
             # Sensor power vs. specimen matrix (Ns, Ni)
             P = torch.einsum('sxy,xyi->si', self.sensor_masks, Ps)
-
 
         # Normalise powers as numpy arrays
         P = P.cpu().numpy() / N ** 2
@@ -296,6 +276,7 @@ class Optimizer:
 
             # Sensor power matrix (Ns, Ni)
             P = torch.einsum('sxy,xyk,ki->si', self.sensor_masks, U.abs() ** 2, self.power)
+            del U
 
             # Loss function for orthogonal solution using singular values of the signal matrix
             S = torch.linalg.svdvals(P)
