@@ -126,13 +126,13 @@ class MemoryTracker:
         a = torch.cuda.memory_allocated(0)
         diff = a - self.allocated
         self.allocated = a
-        a = f"{a / 1024 ** 2:.2f} MB"
-        n = f"{diff / 1024 ** 2:.2f} MB"
+        a = f"{a / 1024 ** 2:4.0f} MB"
+        n = f"{diff / 1024 ** 2:4.0f} MB"
         if expect is None:
-            logger.debug(f"-VRAM- | {label:8s} | Allocated: {a} | new: {n}")
+            logger.debug(f"-VRAM- | {label:10s} | Allocated: {a} | new: {n}")
         else:
-            e = f"{expect / 1024 ** 2:.2f} MB"
-            logger.debug(f"-VRAM- | {label:8s} | Allocated: {a} | new: {n} | expected: {e}")
+            e = f"{expect / 1024 ** 2:4.0f} MB"
+            logger.debug(f"-VRAM- | {label:10s} | Allocated: {a} | new: {n} | expected: {e}")
 
 class Optimizer:
     count: int
@@ -255,6 +255,9 @@ class Optimizer:
     def step(self, height, method, count_s):
         """ Calculate H, P, and Ps for a given physical height profile illuminated by unit fields. """
 
+        if self.device.type == "cuda":
+            torch.cuda.empty_cache()
+
         # Prepare height tensor
         # Dimension hint:    float(N, N)
         # Memory allocation: 64 MB for N = 4k (height_tensor)
@@ -292,8 +295,12 @@ class Optimizer:
         return height_clipped.detach().cpu().numpy()
 
     def run(self, height, learning_rate):
-        logger.debug("Starting Optimization")
         assert isinstance(height, np.ndarray)
+
+        if self.device.type == "cuda":
+            torch.cuda.empty_cache()
+
+        logger.debug("Starting Optimization")
         self.mem.tick("run")
 
         lr = format(float(format(learning_rate, ".2g")), "f").rstrip('0').rstrip('.')
