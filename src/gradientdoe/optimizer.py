@@ -312,6 +312,9 @@ class Optimizer:
         lr = format(float(format(learning_rate, ".2g")), "f").rstrip('0').rstrip('.')
         logger.debug(f"Learning Rate: {lr}")
 
+        use_checkpoint = self.count >= 4096
+        logger.debug(f"Using checkpoint: {use_checkpoint}")
+
         # Initialize optimiser target
         self.h_max = float(max(np.max(height) * (1 + self.exp.optimizer.maxHeightFactor), self.exp.doe.maxHeight))
         logger.debug(f"Damping maxHeight: {self.h_max:.2f} -> {self.exp.doe.maxHeight:.2f} µm")
@@ -340,7 +343,7 @@ class Optimizer:
             # ASM field propagation
             #U = self.doe.fields_from_height(self.get_height(height_raw))
             #U = self.asm.propagate(U, self.jitter)
-            if self.count >= 4096:
+            if use_checkpoint:
                 U = checkpoint(forward_propagate, height_raw, use_reentrant=False)
             else:
                 U = forward_propagate(height_raw)
