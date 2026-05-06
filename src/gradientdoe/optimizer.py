@@ -17,6 +17,7 @@ from .element import DiffractiveOpticalElement
 from .sensor import SensorArray
 
 logger = logging.getLogger("optimiser")
+TRACK_MEM = False
 
 
 def memory(device):
@@ -121,7 +122,7 @@ class MemoryTracker:
         self.allocated = a
 
     def tick(self, label, expect=None):
-        if self.device.type != "cuda":
+        if not TRACK_MEM or self.device.type != "cuda":
             return
         a = torch.cuda.memory_allocated(0)
         diff = a - self.allocated
