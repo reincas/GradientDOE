@@ -141,7 +141,6 @@ if __name__ == '__main__':
     # Determine suitable height profile
     count = exp.grid.count
     pitch = exp.grid.pitch
-    optimizer = Optimizer(exp)
     steps = math.log2(exp.grid.countFinal) - math.log2(count) + 1
 
     initial_learning_rate = exp.optimizer.initialLearningRate
@@ -151,6 +150,7 @@ if __name__ == '__main__':
     height = None
     i = 0
     while count <= exp.grid.countFinal:
+        optimizer = Optimizer(exp)
         if height is None:
             height = optimizer.init_height()
         else:
