@@ -294,6 +294,7 @@ class Optimizer:
     def run(self, height, learning_rate):
         logger.debug("Starting Optimization")
         assert isinstance(height, np.ndarray)
+        self.mem.tick("run")
 
         lr = format(float(format(learning_rate, ".2g")), "f").rstrip('0').rstrip('.')
         logger.debug(f"Learning Rate: {lr}")
@@ -303,10 +304,12 @@ class Optimizer:
         logger.debug(f"Damping maxHeight: {self.h_max:.2f} -> {self.exp.doe.maxHeight:.2f} µm")
         height_raw = torch.tensor(self.get_raw(height), device=self.device, dtype=torch.float32, requires_grad=True)
         best_raw = height_raw.detach().clone()
+        self.mem.tick("raw", height_raw.numel() * 4)
 
         # Initialize optimiser
         opt = self.exp.optimizer
         optimizer = torch.optim.Adam([height_raw], lr=learning_rate)
+        self.mem.tick("adam")
 
         # Initialize EMA smoothing (exponential moving average)
         ema = self.exp.optimizer.ema
@@ -318,14 +321,19 @@ class Optimizer:
 
             # Reset gradients
             optimizer.zero_grad()
+            if i == 0:
+                self.mem.tick("zero")
 
             # ASM field propagation
             U = self.doe.fields_from_height(self.get_height(height_raw))
             U = self.asm.propagate(U, self.jitter)
+            if i == 0:
+                self.mem.tick("U", U.numel() * 8)
 
             # Sensor power matrix (Ns, Ni)
             P = torch.einsum('sxy,xyk,ki->si', self.sensor_masks, U.abs() ** 2, self.power)
-            del U
+            if i == 0:
+                self.mem.tick("P", P.numel() * 4)
 
             # Loss function for orthogonal solution using singular values of the signal matrix
             S = torch.linalg.svdvals(P)
@@ -341,10 +349,16 @@ class Optimizer:
 
             # Total loss function with weights
             loss = l_ortho + l_eta + l_height
+            if i == 0:
+                self.mem.tick("loss", 0)
 
             # Backpropagation
             loss.backward()
+            if i == 0:
+                self.mem.tick("backward")
             optimizer.step()
+            if i == 0:
+                self.mem.tick("opt.step")
 
             h_max = self.h_max - self.exp.optimizer.maxHeightFactor * (self.h_max - self.exp.doe.maxHeight)
             self.h_max = float(max(h_max, self.exp.doe.maxHeight))
@@ -367,6 +381,8 @@ class Optimizer:
                     logger.debug(
                         f"Converged [{self.count}]: Improvement < {ema.threshold * 100}% for {ema.patience} iterations.")
                     break
+            if i == 0:
+                self.mem.tick("final")
 
         if ema.has_finished:
             # height = best_height
