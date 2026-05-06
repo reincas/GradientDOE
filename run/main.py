@@ -146,7 +146,7 @@ if __name__ == '__main__':
 
     initial_learning_rate = exp.optimizer.initialLearningRate
     final_learning_rate = exp.optimizer.finalLearningRate
-    rate_factor = math.log(final_learning_rate) / (steps * math.log(initial_learning_rate))
+    rate_base = 10 ** (math.log(final_learning_rate / initial_learning_rate) / (steps - 1))
 
     height = None
     i = 0
@@ -156,7 +156,7 @@ if __name__ == '__main__':
         else:
             height = optimizer.interpolate_height(height, count)
         optimizer.set_grid(count, pitch)
-        learning_rate = initial_learning_rate ** (rate_factor * i)
+        learning_rate = initial_learning_rate * rate_base ** i
         height = optimizer.run(height, learning_rate)
         write_height(height, count, height_path)
 
