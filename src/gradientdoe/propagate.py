@@ -97,32 +97,25 @@ class AngularSpectrumMethod:
         self.kernels = torch.tensor(spectral_kernels(pixel_count, pixel_pitch, z, wavelengths, f_kernel),
                                     device=self.device, dtype=torch.complex64)
 
-        # Default is no jitter
-        self.phase_jitter = 1
-
-    def update_jitter(self, jitter):
+    def get_jitter(self):
 
         # Dimension hint: complex(N, N)
         # Memory allocation: 1 GB for N = 8k
-        if jitter:
-            shift_x = torch.rand(1, device=self.device, dtype=torch.float32) - 0.5
-            shift_y = torch.rand(1, device=self.device, dtype=torch.float32) - 0.5
-            ramp_x = torch.exp(self.fexp * shift_x)
-            ramp_y = torch.exp(self.fexp * shift_y)
-            self.phase_jitter = ramp_y[:, None] * ramp_x
-        else:
-            self.phase_jitter = 1
+        shift_x = torch.rand(1, device=self.device, dtype=torch.float32) - 0.5
+        shift_y = torch.rand(1, device=self.device, dtype=torch.float32) - 0.5
+        ramp_x = torch.exp(self.fexp * shift_x)
+        ramp_y = torch.exp(self.fexp * shift_y)
+        return ramp_y[:, None] * ramp_x
 
     def propagate(self, Uo, jitter):
         """ Propagate source field Uo to image field Us. Add a grid jitter if jitter == True. """
 
-        # Prepare optional random spectral ramp, equal to lateral jitter of the spatial grid
-        self.update_jitter(jitter)
-
         # Calculate image field
         # Memory allocation peak: 2.25 GB for N = 8k, Nk = 9
         Uf = torch.fft.fft2(Uo, dim=(0, 1))
-        return torch.fft.ifft2(Uf * self.phase_jitter[:, :, None] * self.kernels, dim=(0, 1))
+        if jitter:
+            return torch.fft.ifft2(Uf * self.get_jitter()[:, :, None] * self.kernels, dim=(0, 1))
+        return torch.fft.ifft2(Uf * self.kernels, dim=(0, 1))
 
 
 ##########################################################################
