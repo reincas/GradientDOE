@@ -17,22 +17,19 @@ Modify the values in the dictionary `EXPERIMENT` on top of the script `run/main.
 
 ## Optimize Phase Plates
 
-When you run
+Optimised height structures will be calculated and stored in the folder `result` when you run
 
 ```
 python run/main.py result
 ```
 
-optimised height structures will be calculated and stored in the folder `result`. A GPU with 8 GB VRAM is able to
-run the optimisation for pixel counts up to 4096.
+A GPU with 8 GB VRAM is able to run the optimisation for pixel counts up to 4096.
 
 ## Plot Results
 
-Run
+To generate plots of the height structures, power images in the sensor plane and image files for the grayscale
+lithography from Nanoscribe in the folder `result`, run
 
 ```
 python run/plot.py result
 ```
-
-to generate plots of the height structures, power images in the sensor plane and image files for the grayscale
-lithography from Nanoscribe in the folder `result`.
