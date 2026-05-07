@@ -27,8 +27,8 @@ A GPU with 8 GB VRAM is able to run the optimisation for pixel counts up to 4096
 
 ## Plot Results
 
-To generate plots of the height structures, power images in the sensor plane and image files for the grayscale
-lithography from Nanoscribe in the folder `result`, run
+To generate plots of these height structures in the folder `result`, power images in the sensor plane and image files
+for the grayscale lithography from Nanoscribe, run
 
 ```
 python run/plot.py result
