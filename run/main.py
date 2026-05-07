@@ -77,7 +77,7 @@ EXPERIMENT = {
     "optimizer": {
         "maxLoops": 1000000,
         "checkpointThreshold": 4096,
-        "initialLearningRate": 0.05,
+        "initialLearningRate": 0.005,
         "finalLearningRate": 0.05,
         "maxHeightFactor": 0.005,
         "maxHeightThreshold": 0.005,
