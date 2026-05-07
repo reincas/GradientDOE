@@ -216,17 +216,19 @@ class Optimizer:
     def get_height(self, h_raw, blur_radius):
         """ Generate DOE height profile (0...h_max) from raw height tensor (soft constraint). """
 
-        if isinstance(h_raw, torch.Tensor):
-            height = torch.sigmoid(h_raw) * self.h_max
-        else:
-            height = self.h_max / (1 + np.exp(-h_raw))
+        height = h_raw
+        # if isinstance(h_raw, torch.Tensor):
+        #     height = torch.sigmoid(h_raw) * self.h_max
+        # else:
+        #     height = self.h_max / (1 + np.exp(-h_raw))
         return gaussian_blur(height, blur_radius)
 
     def get_raw(self, height):
-        if isinstance(height, torch.Tensor):
-            return torch.logit(height / self.h_max)
-        x = np.clip(height / self.h_max, 1e-9, 1 - 1e-9)
-        return np.log(x / (1 - x))
+        return height
+        # if isinstance(height, torch.Tensor):
+        #     return torch.logit(height / self.h_max)
+        # x = np.clip(height / self.h_max, 1e-9, 1 - 1e-9)
+        # return np.log(x / (1 - x))
 
     def interpolate_height(self, height, target_count):
         """ Tensor-based spectral interpolation of a height profile. """
