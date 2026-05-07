@@ -184,7 +184,7 @@ if __name__ == '__main__':
     i = 0
     while count <= exp.grid.countFinal:
         optimizer = Optimizer(exp)
-        if count < exp.optimizer.checkpointThreshold:
+        if count <= exp.optimizer.checkpointThreshold:
             if height is None:
                 height = optimizer.init_height()
             else:
