@@ -91,7 +91,7 @@ EXPERIMENT = {
         "expOrtho": 2,
         "weightEta": 50.0,
         "weightGrad": 50.0,
-        "weightHeight": 10.0,
+        "weightHeight": 2.0,
         "jitter": False,
         "ema": {
             "patience": 200,
