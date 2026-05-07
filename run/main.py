@@ -3,6 +3,10 @@
 # <reinhard.caspary@phoenixd.uni-hannover.de>                            #
 # This program is free software under the terms of the MIT license.      #
 ##########################################################################
+#
+# Requires a command line argument with the result folder.
+#
+##########################################################################
 
 import h5py
 import logging
@@ -42,22 +46,22 @@ EXPERIMENT = {
         "material": None,  # Determined by main()
         "pitch": 0.25,
         "pitchUnit": "µm",
-        "count": 8192,
+        "count": 8 * 1024,
         "maxHeight": 6,
         "maxHeightUnit": "µm",
         "blurRadius": 0.5,
         "blurRadiusUnit": "µm",
     },
     "grid": {
-        "pitch": 0,        # Determined by Experiment.adjust_parameters()
+        "pitch": 0,  # Determined by Experiment.adjust_parameters()
         "pitchUnit": "µm",
-        "count": 0,        # Determined by Experiment.adjust_parameters()
-        "countFinal": 0,   # Determined by Experiment.adjust_parameters()
+        "count": 0,  # Determined by Experiment.adjust_parameters()
+        "countFinal": 0,  # Determined by Experiment.adjust_parameters()
     },
     "setup": {
-        "wavelengths": [], # Determined by Experiment.adjust_parameters()
+        "wavelengths": [],  # Determined by Experiment.adjust_parameters()
         "wavelengthsUnit": "µm",
-        "sources": [],     # Determined by Experiment.adjust_parameters()
+        "sources": [],  # Determined by Experiment.adjust_parameters()
         "distance": 150000.0,
         "distanceUnit": "µm",
     },
@@ -72,16 +76,16 @@ EXPERIMENT = {
         "fuzzyRadius": 5,
         "fuzzyRadiusUnit": "µm",
         "skipCenter": True,
-        "eta": None,       # Determined by Experiment.adjust_parameters()
+        "eta": None,  # Determined by Experiment.adjust_parameters()
         "minOversample": 16,
         "oversample": 0,
     },
     "optimizer": {
         "maxLoops": 1000000,
-        "checkpointThreshold": 4096,
+        "checkpointThreshold": 4 * 1024,
         "initialLearningRate": 0.05,
         "finalLearningRate": 0.05,
-        "maxHeightFactor": 0.005,
+        "maxHeightFactor": 0.02,
         "maxHeightThreshold": 0.005,
         "weightOrtho": 5.0,
         "expOrtho": 2,
@@ -90,9 +94,9 @@ EXPERIMENT = {
         "ema": {
             "patience": 200,
             "threshold": 1e-2,
-            "alpha": 0.1,
-            "loss": None,     # Determined by Ema.step()
-            "bestLoss": None, # Determined by Ema.step()
+            "alpha": 0.2,
+            "loss": None,  # Determined by Ema.step()
+            "bestLoss": None,  # Determined by Ema.step()
         },
     }
 }

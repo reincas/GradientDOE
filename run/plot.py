@@ -3,6 +3,10 @@
 # <reinhard.caspary@phoenixd.uni-hannover.de>                            #
 # This program is free software under the terms of the MIT license.      #
 ##########################################################################
+#
+# Requires a command line argument with the result folder.
+#
+##########################################################################
 
 import h5py
 import logging
