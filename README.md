@@ -6,7 +6,7 @@ the GPU of my RTX 3070, CUDA capability 8.6, with 8 GB of VRAM.
 
 ## Configuration
 
-Modify the dictionary `EXPERIMENT` on top of the script `run/main.py`.
+Modify the values in the dictionary `EXPERIMENT` on top of the script `run/main.py`.
 
 ## Optimize Phase Maps (DOE)
 
