@@ -18,7 +18,6 @@ from .element import DiffractiveOpticalElement
 from .sensor import SensorArray
 
 logger = logging.getLogger("optimiser")
-TRACK_MEM = False
 
 
 def memory(device):
@@ -154,34 +153,6 @@ class Ema(Parameter):
         return self.counter >= self.patience
 
 
-class MemoryTracker:
-    def __init__(self, device):
-        self.device = device
-        if self.device.type != "cuda":
-            return
-        t = torch.cuda.get_device_properties(0).total_memory
-        r = torch.cuda.memory_reserved(0)
-        a = torch.cuda.memory_allocated(0)
-        logger.info(f"Total VRAM: {t / 1024 ** 2:.2f} MB")
-        logger.info(f"Reserved:   {r / 1024 ** 2:.2f} MB")
-        logger.info(f"Allocated:  {a / 1024 ** 2:.2f} MB")
-        self.allocated = a
-
-    def tick(self, label, expect=None):
-        if not TRACK_MEM or self.device.type != "cuda":
-            return
-        a = torch.cuda.memory_allocated(0)
-        diff = a - self.allocated
-        self.allocated = a
-        a = f"{a / 1024 ** 2:4.0f} MB"
-        n = f"{diff / 1024 ** 2:4.0f} MB"
-        if expect is None:
-            logger.info(f"-VRAM- | {label:10s} | Allocated: {a} | new: {n}")
-        else:
-            e = f"{expect / 1024 ** 2:4.0f} MB"
-            logger.info(f"-VRAM- | {label:10s} | Allocated: {a} | new: {n} | expected: {e}")
-
-
 class Optimizer:
     count: int
     pitch: float
@@ -190,7 +161,6 @@ class Optimizer:
     asm: AngularSpectrumMethod
 
     def __init__(self, exp, device=None):
-        # Total memory allocation: 1408 MB (self.sensor_masks, self.asm.kernels)
 
         self.exp = exp
         self.jitter = exp.optimizer.jitter
@@ -200,38 +170,29 @@ class Optimizer:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self.device = torch.device(device)
-        logger.info(f"Running on {self.device.type.upper()} with {memory(self.device) / 1024 ** 3:.2f} GB")
+        logger.info(f"Optimizer running on {self.device.type.upper()} with {memory(self.device) / 1024 ** 3:.2f} GB")
         if self.device.type == "cuda":
             torch.cuda.empty_cache()
-            logger.info(f"Device Name: {torch.cuda.get_device_name(0)}")
+            logger.info(f"    Device Name: {torch.cuda.get_device_name(0)}")
             major, minor = torch.cuda.get_device_capability(0)
-            logger.info(f"Compute Capability: {major}.{minor}")
-            # t = torch.cuda.get_device_properties(0).total_memory
-            # r = torch.cuda.memory_reserved(0)
-            # a = torch.cuda.memory_allocated(0)
-            # logger.info(f"Total VRAM: {t / 1024 ** 3:.2f} GB")
-            # logger.info(f"Reserved:   {r / 1024 ** 3:.2f} GB")
-            # logger.info(f"Allocated:  {a / 1024 ** 3:.2f} GB")
-        self.mem = MemoryTracker(self.device)
+            logger.info(f"    Compute Capability: {major}.{minor}")
+            t = torch.cuda.get_device_properties(0).total_memory
+            r = torch.cuda.memory_reserved(0)
+            a = torch.cuda.memory_allocated(0)
+            logger.info(f"    Total VRAM: {t / 1024 ** 3:.2f} GB")
+            logger.info(f"    Reserved:   {r / 1024 ** 3:.2f} GB")
+            logger.info(f"    Allocated:  {a / 1024 ** 3:.2f} GB")
 
         # Initialise DOE
-        # Memory allocation: ~0
         self.doe = DiffractiveOpticalElement(self.exp.setup.wavelengths, self.exp.doe.material.values, self.device)
-        self.mem.tick("doe", 0)
 
         # Initialise the sensor array
-        # Memory allocation: 1408 MB (self.sensor_masks, self.asm.kernels)
         self.sensor = SensorArray(self.exp.sensor)
         self.set_grid(self.exp.grid.count, self.exp.grid.pitch)
-        self.mem.tick("sensor", self.sensor_masks.numel() * 4 + self.asm.kernels.numel() * 8)
 
         # Spectra of all specimen weighted by spectral sensor efficiency
-        # Dimension hint:    float(Nk, Ni)
-        # Memory allocation: 108 B = 9 * 3 * 4 (self.power)
         self.power = torch.tensor(power_spectra(self.exp.setup, self.exp.sensor),
                                   device=self.device, dtype=torch.float32)
-        self.mem.tick("power", self.power.numel() * 4)
-
         # Maximum height of the DOE profile
         self.h_max = float(self.exp.doe.maxHeight)
 
@@ -240,14 +201,10 @@ class Optimizer:
 
         self.count = count
         self.pitch = pitch
-        self.sensor.set_grid(count, pitch)
 
-        # Dimension hint:    float(Ns, N, N)
-        # Memory allocation: 256 MB = 4 * 4k * 4k * 4 (self.sensor_masks)
+        self.sensor.set_grid(count, pitch)
         self.sensor_masks = torch.tensor(self.sensor.masks, device=self.device, dtype=torch.float32)
 
-        # Dimension hint:    complex(N, N, Nk)
-        # Memory allocation: 1152 MB = 4k * 4k * 9 * 8 (self.asm.kernels)
         self.asm = AngularSpectrumMethod(count, pitch, self.exp.setup.distance, self.exp.setup.wavelengths, self.device)
 
     def init_height(self):
@@ -318,8 +275,6 @@ class Optimizer:
 
         with torch.no_grad():
             # Prepare height tensor
-            # Dimension hint:    float(N, N)
-            # Memory allocation: 64 MB for N = 4k (height_tensor)
             if isinstance(height, torch.Tensor):
                 height_tensor = height.to(self.device)
             else:
@@ -365,28 +320,24 @@ class Optimizer:
             torch.cuda.empty_cache()
 
         logger.info("Starting Optimization")
-        self.mem.tick("run")
-
         lr = format(float(format(learning_rate, ".2g")), "f").rstrip('0').rstrip('.')
-        logger.info(f"Learning Rate: {lr}")
+        logger.info(f"    Learning Rate: {lr}")
 
         # Initialize optimiser target
         self.h_max = float(max(np.max(height) * (1 + self.exp.optimizer.maxHeightFactor), self.exp.doe.maxHeight))
-        logger.info(f"Damping maxHeight: {self.h_max:.2f} -> {self.exp.doe.maxHeight:.2f} µm")
+        logger.info(f"    Damping maxHeight: {self.h_max:.2f} -> {self.exp.doe.maxHeight:.2f} µm")
         height_raw = torch.tensor(self.get_raw(height), device=self.device, dtype=torch.float32, requires_grad=True)
         best_raw = height_raw.detach().clone()
-        self.mem.tick("raw", height_raw.numel() * 4)
 
         # Initialize optimiser
         opt = self.exp.optimizer
         optimizer = torch.optim.Adam([height_raw], lr=learning_rate)
-        self.mem.tick("adam")
 
         use_checkpoint = self.count >= opt.checkpointThreshold
-        logger.info(f"Using checkpoint: {use_checkpoint}")
+        logger.info(f"    Using checkpoint: {use_checkpoint}")
 
         blur_radius = self.exp.doe.blurRadius / self.pitch
-        logger.info(f"Gaussian blur kernel size: {get_kernel_size(blur_radius)}")
+        logger.info(f"    Gaussian blur kernel size: {get_kernel_size(blur_radius)}")
 
         # Initialize EMA smoothing (exponential moving average)
         ema = self.exp.optimizer.ema
@@ -398,22 +349,16 @@ class Optimizer:
 
             # Reset gradients
             optimizer.zero_grad(set_to_none=True)
-            if i == 0:
-                self.mem.tick("zero")
 
             # ASM field propagation
             if self.device.type != "cpu" and use_checkpoint:
                 U = checkpoint(forward_propagate, height_raw, blur_radius, use_reentrant=False)
             else:
                 U = forward_propagate(height_raw, blur_radius)
-            if i == 0:
-                self.mem.tick("U", U.numel() * 8)
 
             # Sensor power matrix (Ns, Ni)
             P = torch.einsum('sxy,xyk,ki->si', self.sensor_masks, U.abs() ** 2, self.power)
             del U
-            if i == 0:
-                self.mem.tick("P", P.numel() * 4)
 
             # Loss function for orthogonal solution using singular values of the signal matrix
             S = torch.linalg.svdvals(P)
@@ -429,16 +374,10 @@ class Optimizer:
 
             # Total loss function with weights
             loss = l_ortho + l_eta + l_height
-            if i == 0:
-                self.mem.tick("loss", 0)
 
             # Backpropagation
             loss.backward()
-            if i == 0:
-                self.mem.tick("backward")
             optimizer.step()
-            if i == 0:
-                self.mem.tick("opt.step")
 
             h_max = self.h_max - self.exp.optimizer.maxHeightFactor * (self.h_max - self.exp.doe.maxHeight)
             self.h_max = float(max(h_max, self.exp.doe.maxHeight))
@@ -446,7 +385,6 @@ class Optimizer:
 
             # EMA smoothing step
             if ema.step((l_ortho + l_eta).item()):
-                # best_height = height_clipped.detach().cpu().numpy()
                 best_raw = height_raw.detach().cpu().numpy()
                 P_over = P.mean() / (self.count ** 2 * self.sensor.area_ratio)
                 log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} || {S_rel:7.3f} | {P_over:7.3f} | {delta_h:7.3f}"
@@ -455,21 +393,14 @@ class Optimizer:
             if ema.has_finished or time.time() - t > 2:
                 t = time.time()
                 if log:
-                    message = f"{self.count:5d} | {i:5d} | {ema.counter:3d} || {log}"
-                    if TRACK_MEM and self.device.type == "cuda":
-                        a = torch.cuda.memory_allocated(0)
-                        message += f" || {a / 1024 ** 2:.0f} MB"
-                    logger.info(message)
+                    logger.info(f"{self.count:5d} | {i:5d} | {ema.counter:3d} || {log}")
 
                 if ema.has_finished and l_height < opt.maxHeightThreshold * self.exp.doe.maxHeight:
                     logger.info(
                         f"Converged [{self.count}]: Improvement < {ema.threshold * 100}% for {ema.patience} iterations.")
                     break
-            if i == 0:
-                self.mem.tick("final")
 
         if ema.has_finished:
-            # height = best_height
             height = self.get_height(best_raw, blur_radius)
         else:
             height = None

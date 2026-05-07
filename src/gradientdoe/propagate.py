@@ -83,13 +83,9 @@ class AngularSpectrumMethod:
             raise ValueError(f"Propagation distance {z:.0f} µm below minimum for given grid ({zc:.0f} µm).")
 
         # Spatial frequency grid exponent
-        # Dimension hint:    complex(N)
-        # Memory allocation: 32 kB = 4k * 8 (self.fexp)
         self.fexp = -2j * torch.pi * torch.fft.fftfreq(pixel_count, device=self.device)
 
         # Pre-calculation of spectral kernels
-        # Dimension hint:    complex(N, N, Nk)
-        # Memory allocation: 576 MB = 4k * 4k * 9 * 8 (self.kernels)
         if kernel == "ETF":
             f_kernel = etf_kernel
         elif kernel.upper() == "FTF":
@@ -101,8 +97,6 @@ class AngularSpectrumMethod:
 
     def get_jitter(self):
 
-        # Dimension hint: complex(N, N)
-        # Memory allocation: 128 MB = 4k * 4k * 8 (jitter)
         shift_x = torch.rand(1, device=self.device, dtype=torch.float32) - 0.5
         shift_y = torch.rand(1, device=self.device, dtype=torch.float32) - 0.5
         ramp_x = torch.exp(self.fexp * shift_x)
@@ -114,8 +108,6 @@ class AngularSpectrumMethod:
         """ Propagate source field Uo to image field Us. Add a grid jitter if jitter == True. """
 
         # Calculate image field
-        # Dimension hint:         complex(N, N, Nk)
-        # Memory allocation peak: 1152 MB = 4k * 4k * 9 * 8 (Uf)
         Uf = torch.fft.fft2(Uo, dim=(0, 1))
         if jitter:
             return torch.fft.ifft2(Uf * self.get_jitter()[:, :, None] * self.kernels, dim=(0, 1))
@@ -146,7 +138,6 @@ def rayleigh_sommerfeld(k, z, px_o, py_o, px_s, py_s, U_o, Nx_s, Ny_s, device):
     kpy_s = py_s * k
 
     # Size of source grid
-    # U_o = torch.tensor(U_o, device=device, dtype=torch.complex64)
     Ny_o, Nx_o = U_o.shape
 
     # Pixel offsets
@@ -166,7 +157,6 @@ def rayleigh_sommerfeld(k, z, px_o, py_o, px_s, py_s, U_o, Nx_s, Ny_s, device):
 
     # Global scaling
     U_s *= kz * kpx_o * kpy_o / (2 * torch.pi)
-    # U_s = U_s.cpu().numpy()
     return U_s
 
 
