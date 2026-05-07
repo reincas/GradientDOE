@@ -357,7 +357,6 @@ class Optimizer:
             l_eta = opt.weightEta * P_eta
 
             # Minimize pixel gradient
-            height_tensor = height_tensor
             diff_x = torch.abs(height_tensor[:, 1:] - height_tensor[:, :-1]).mean()
             diff_y = torch.abs(height_tensor[1:, :] - height_tensor[:-1, :]).mean()
             l_grad = opt.weightGrad * (diff_x + diff_y) / self.pitch
@@ -369,13 +368,13 @@ class Optimizer:
             else:
                 self.h_max = h_max - self.exp.optimizer.maxHeightFactor * (h_max - self.exp.doe.maxHeight)
             delta_h = h_max - self.exp.doe.maxHeight
-            l_height = opt.weightHeight * h_max / self.exp.doe.maxHeight
+            #l_height = opt.weightHeight * h_max / self.exp.doe.maxHeight
 
             # # Maximum height limit
             # l_height = self.h_max - self.exp.doe.maxHeight
 
             # Total loss function with weights
-            loss = l_ortho + l_eta + l_grad + l_height
+            loss = l_ortho + l_eta + l_grad #+ l_height
 
             # h_max = height_tensor.detach().max()
             # h_limit = h_max - self.exp.optimizer.maxHeightFactor * (h_max - self.exp.doe.maxHeight)
@@ -389,7 +388,7 @@ class Optimizer:
                 diff_y = torch.abs(height_tensor[1:, :] - height_tensor[:-1, :]).max()
                 max_grad = max(diff_x.item(), diff_y.item()) / self.pitch
                 P_over = P.mean() / (self.count ** 2 * self.sensor.area_ratio)
-                log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} | {l_grad.item():7.2f} | {l_height.item():7.2f}" + \
+                log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} | {l_grad.item():7.2f}" + \
                       f" || {S_rel:7.3f} | {P_over:7.3f} | {max_grad:7.3f} | {h_max:7.3f}"
 
             # Logging
@@ -404,6 +403,7 @@ class Optimizer:
                     break
 
             # Backpropagation
+            del height_tensor
             loss.backward()
             optimizer.step()
 
