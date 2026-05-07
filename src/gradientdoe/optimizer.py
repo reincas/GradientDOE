@@ -333,7 +333,7 @@ class Optimizer:
 
             # Height adjustment
             height_tensor = gaussian_blur(height_tensor, blur_radius)
-            height_tensor -= height_tensor.min()
+            height_tensor = height_tensor - height_tensor.min()
             if height_tensor.max() > self.h_max:
                 height_tensor = height_tensor * (self.h_max / height_tensor.max())
 
