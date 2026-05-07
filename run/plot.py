@@ -10,10 +10,11 @@ from matplotlib import pyplot as plt, patches as patches
 import numpy as np
 from pathlib import Path
 from PIL import Image
-from typing import cast, Any
+import sys
 
 from gradientdoe.experiment import Experiment, next_power_of_2
 from gradientdoe.optimizer import Optimizer
+from run.main import get_path
 
 
 def get_next_preferred_number(x: float) -> float:
@@ -204,12 +205,18 @@ def plot(optimizer, count, root):
 
 
 if __name__ == "__main__":
-    np.set_printoptions(formatter=cast(Any, {'float': '{: .3f}'.format}), linewidth=120)
+    root = get_path()
+    if root is None:
+        print("Result folder required as command line argument.")
+        sys.exit(1)
+    if not root.exists():
+        print(f"Result folder {root} does not exist.")
+        sys.exit(2)
 
     # Initialise optimizer and load height profile
-    root = Path("result_04")
-    exp = Experiment.read(root / "result.json")
+    exp = Experiment.read(root / "parameters.json")
     optimizer = Optimizer(exp)
-    for n in range(7, 14):
-        count = 2 ** n
+    count = exp.grid.count
+    while count <= 8192:
         plot(optimizer, count, root)
+        count *= 2

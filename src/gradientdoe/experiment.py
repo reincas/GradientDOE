@@ -49,6 +49,7 @@ class SetupParameter(Parameter):
 
 
 class SensorParameter(Parameter):
+    model: str
     horizontalCount: int
     verticalCount: int
     pitch: float
@@ -149,7 +150,7 @@ class Experiment(Parameter):
         mean = np.mean(np.array(self.doe.material.values, dtype=np.float32))
         logger.debug(f"    Mean refractive index: {mean:.4f}")
 
-        model = "a2A3536-31umBAS"
+        model = self.sensor.model
         eta = Spectrum.read(f"../sensors/{model}.json")
         eta = spectra[0].interpolate(eta)
         self.sensor.eta = eta

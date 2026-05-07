@@ -7,6 +7,8 @@
 import h5py
 import logging
 import math
+from pathlib import Path
+import sys
 
 from gradientdoe.experiment import Experiment
 from gradientdoe.optimizer import Optimizer
@@ -37,7 +39,7 @@ MATERIALS = {
 
 EXPERIMENT = {
     "doe": {
-        "material": None,
+        "material": None,  # Determined by main()
         "pitch": 0.5,
         "pitchUnit": "µm",
         "count": 4096,
@@ -45,19 +47,20 @@ EXPERIMENT = {
         "maxHeightUnit": "µm",
     },
     "grid": {
-        "pitch": 0,
+        "pitch": 0,        # Determined by Experiment.adjust_parameters()
         "pitchUnit": "µm",
-        "count": 0,
-        "countFinal": 0,
+        "count": 0,        # Determined by Experiment.adjust_parameters()
+        "countFinal": 0,   # Determined by Experiment.adjust_parameters()
     },
     "setup": {
-        "wavelengths": [],
+        "wavelengths": [], # Determined by Experiment.adjust_parameters()
         "wavelengthsUnit": "µm",
-        "sources": [],
+        "sources": [],     # Determined by Experiment.adjust_parameters()
         "distance": 150000.0,
         "distanceUnit": "µm",
     },
     "sensor": {
+        "model": "a2A3536-31umBAS",
         "horizontalCount": 2,
         "verticalCount": 2,
         "pitch": 1000,
@@ -67,7 +70,7 @@ EXPERIMENT = {
         "fuzzyRadius": 5,
         "fuzzyRadiusUnit": "µm",
         "skipCenter": True,
-        "eta": None,
+        "eta": None,       # Determined by Experiment.adjust_parameters()
         "minOversample": 16,
         "oversample": 0,
     },
@@ -86,19 +89,19 @@ EXPERIMENT = {
             "patience": 200,
             "threshold": 1e-2,
             "alpha": 0.1,
-            "loss": None,
-            "bestLoss": None,
+            "loss": None,     # Determined by Ema.step()
+            "bestLoss": None, # Determined by Ema.step()
         },
     }
 }
 
 
-def init_logger():
+def init_logger(root):
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
     log_format = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-    file = "gradientdoe.log"
+    file = root / "gradientdoe.log"
     file_h = logging.FileHandler(file, mode="a")
     file_h.setFormatter(log_format)
     file_h.setLevel(logging.DEBUG)
@@ -121,10 +124,25 @@ def write_height(height, count, path):
         logger.info(f"Height profile {name} stored in {path}")
 
 
+def get_path():
+    """ Returns the first command line argument as a Path object. """
+    try:
+        return Path(sys.argv[1])
+    except IndexError:
+        return None
+
+
 if __name__ == '__main__':
-    init_logger()
-    height_path = "result.h5"
-    result_path = "result.json"
+    root = get_path()
+    if root is None:
+        print("Result folder required as command line argument.")
+        sys.exit(1)
+    if root.exists():
+        print(f"Result folder {root} already exists.")
+        sys.exit(2)
+
+    root.mkdir()
+    init_logger(root)
 
     # Artificial specimen spectra
     src_model = "CSL1"
@@ -139,6 +157,9 @@ if __name__ == '__main__':
     # Experimental setup
     exp = Experiment(EXPERIMENT)
     exp.adjust_parameters(wavelengths, spectra, material)
+    path = root / "parameters.json"
+    exp.write(path)
+    logger.info(f"Optimization parameters stored in {path}")
 
     # Determine suitable height profile
     count = exp.grid.count
@@ -160,11 +181,8 @@ if __name__ == '__main__':
         optimizer.set_grid(count, pitch)
         learning_rate = initial_learning_rate * rate_base ** i
         height = optimizer.run(height, learning_rate)
-        write_height(height, count, height_path)
-
-        # Store result
-        exp.write(result_path)
-        logger.info(f"Optimization parameters stored in {result_path}")
+        path = root / "height.h5"
+        write_height(height, count, path)
 
         # Double pixel count
         count *= 2
