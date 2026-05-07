@@ -386,7 +386,7 @@ class Optimizer:
             if ema.step((l_ortho + l_eta).item() + l_grad.item()) or i == 0:
                 best_height = height_tensor.detach().cpu().numpy()
                 P_over = P.mean() / (self.count ** 2 * self.sensor.area_ratio)
-                log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} | {l_grad.item():7.2f} || {S_rel:7.3f} | {P_over:7.3f} | {delta_h:7.3f}"
+                log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} | {l_grad.item():7.2f} | {l_height.item():7.2f} || {S_rel:7.3f} | {P_over:7.3f} | {delta_h:7.3f}"
 
             # Logging
             if i == 0 or ema.has_finished or time.time() - t > 2:
@@ -405,7 +405,7 @@ class Optimizer:
 
         if ema.has_finished:
             height = best_height
-            logger.info(f"    Final maximum height: {np.max(height):.2f} µm")
+            logger.info(f"Final maximum height: {np.max(height):.2f} µm")
         else:
             height = None
         return height
