@@ -369,7 +369,7 @@ class Optimizer:
             else:
                 self.h_max = h_max - self.exp.optimizer.maxHeightFactor * (h_max - self.exp.doe.maxHeight)
             delta_h = h_max - self.exp.doe.maxHeight
-            l_height = opt.weightHeight * 10 ** (delta_h / self.exp.doe.maxHeight)
+            l_height = opt.weightHeight * h_max / self.exp.doe.maxHeight
 
             # # Maximum height limit
             # l_height = self.h_max - self.exp.doe.maxHeight
@@ -385,8 +385,12 @@ class Optimizer:
             # EMA smoothing step
             if ema.step((l_ortho + l_eta).item() + l_grad.item()) or i == 0:
                 best_height = height_tensor.detach().cpu().numpy()
+                diff_x = torch.abs(height_tensor[:, 1:] - height_tensor[:, :-1]).max()
+                diff_y = torch.abs(height_tensor[1:, :] - height_tensor[:-1, :]).max()
+                max_grad = max(diff_x.item(), diff_y.item()) / self.pitch
                 P_over = P.mean() / (self.count ** 2 * self.sensor.area_ratio)
-                log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} | {l_grad.item():7.2f} | {l_height.item():7.2f} || {S_rel:7.3f} | {P_over:7.3f} | {delta_h:7.3f}"
+                log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} | {l_grad.item():7.2f} | {l_height.item():7.2f}" + \
+                      f" || {S_rel:7.3f} | {P_over:7.3f} | {max_grad:7.3f} | {h_max:7.3f}"
 
             # Logging
             if i == 0 or ema.has_finished or time.time() - t > 2:
