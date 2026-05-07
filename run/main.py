@@ -177,21 +177,26 @@ if __name__ == '__main__':
     final_learning_rate = exp.optimizer.finalLearningRate
     rate_base = 10 ** (math.log10(final_learning_rate / initial_learning_rate) / (steps - 1))
 
+    height_path = root / "height.h5"
     height = None
+    opt_height = None
+    opt_count = None
     i = 0
-    while count <= min(exp.optimizer.checkpointThreshold, exp.grid.countFinal):
+    while count <= exp.grid.countFinal:
         optimizer = Optimizer(exp)
-        if height is None:
-            height = optimizer.init_height()
+        if count < exp.optimizer.checkpointThreshold:
+            if height is None:
+                height = optimizer.init_height()
+            else:
+                height = optimizer.interpolate_height(height, count)
+            optimizer.set_grid(count, pitch)
+            learning_rate = initial_learning_rate * rate_base ** i
+            height = optimizer.run(height, learning_rate)
+            opt_height = height
+            opt_count = count
         else:
-            height = optimizer.interpolate_height(height, count)
-        optimizer.set_grid(count, pitch)
-        learning_rate = initial_learning_rate * rate_base ** i
-        height = optimizer.run(height, learning_rate)
-        path = root / "height.h5"
-        write_height(height, count, path)
-
-        # Double pixel count
+            height = optimizer.interpolate_height(opt_height, count)
+        write_height(height, count, height_path)
         count *= 2
         pitch /= 2
         i += 1
