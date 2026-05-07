@@ -151,7 +151,7 @@ def plot(optimizer, count, root):
         root = Path(root)
 
     # Height profile
-    height_path = root / "result.h5"
+    height_path = root / "height.h5"
     counts = get_counts(height_path)
     if count in counts:
         height = read_height(height_path, count)
