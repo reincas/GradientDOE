@@ -92,7 +92,7 @@ def gaussian_blur(input, radius: float) -> torch.Tensor:
 
     else:
         # 1D Gaussian distribution
-        coords = torch.arange(kernel_size).float() - (kernel_size - 1) / 2
+        coords = torch.arange(kernel_size, device=input.device).float() - (kernel_size - 1) / 2
         g_1d = torch.exp(-(coords ** 2) / (2 * radius ** 2))
         g_1d = g_1d / g_1d.sum()
 
