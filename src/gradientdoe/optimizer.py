@@ -213,23 +213,6 @@ class Optimizer:
         logger.info(f"Initial height profile: {np.min(height):.2f} - {np.max(height):.2f} µm")
         return height
 
-    def get_height(self, h_raw, blur_radius):
-        """ Generate DOE height profile (0...h_max) from raw height tensor (soft constraint). """
-
-        height = h_raw
-        # if isinstance(h_raw, torch.Tensor):
-        #     height = torch.sigmoid(h_raw) * self.h_max
-        # else:
-        #     height = self.h_max / (1 + np.exp(-h_raw))
-        return gaussian_blur(height, blur_radius)
-
-    def get_raw(self, height):
-        return height
-        # if isinstance(height, torch.Tensor):
-        #     return torch.logit(height / self.h_max)
-        # x = np.clip(height / self.h_max, 1e-9, 1 - 1e-9)
-        # return np.log(x / (1 - x))
-
     def interpolate_height(self, height, target_count):
         """ Tensor-based spectral interpolation of a height profile. """
 
@@ -304,13 +287,9 @@ class Optimizer:
     def run(self, height, learning_rate):
         assert isinstance(height, np.ndarray)
 
-        def forward_propagate(h_raw, radius):
-            h = self.get_height(h_raw, radius)
-            diff_x = torch.abs(h[:, 1:] - h[:, :-1]).mean()
-            diff_y = torch.abs(h[1:, :] - h[:-1, :]).mean()
-            h_diff = (diff_x + diff_y) / self.pitch
+        def forward_propagate(h):
             U = self.doe.fields_from_height(h)
-            return self.asm.propagate(U, self.jitter), h_diff
+            return self.asm.propagate(U, self.jitter)
 
         if self.device.type == "cuda":
             torch.cuda.empty_cache()
@@ -328,12 +307,12 @@ class Optimizer:
             logger.info(f"    Maximum height: {np.max(height):.2f} µm")
 
         # Initialize optimiser target
-        height_raw = torch.tensor(self.get_raw(height), device=self.device, dtype=torch.float32, requires_grad=True)
-        best_raw = height_raw.detach().clone()
+        height_tensor = torch.tensor(height, device=self.device, dtype=torch.float32, requires_grad=True)
+        best_height = height
 
         # Initialize optimiser
         opt = self.exp.optimizer
-        optimizer = torch.optim.Adam([height_raw], lr=learning_rate)
+        optimizer = torch.optim.Adam([height_tensor], lr=learning_rate)
 
         use_checkpoint = self.count >= opt.checkpointThreshold
         logger.info(f"    Using checkpoint: {use_checkpoint}")
@@ -352,11 +331,17 @@ class Optimizer:
             # Reset gradients
             optimizer.zero_grad(set_to_none=True)
 
+            # Height adjustment
+            height_tensor = gaussian_blur(height_tensor, blur_radius)
+            height_tensor -= height_tensor.min()
+            if height_tensor.max() > self.h_max:
+                height_tensor = height_tensor * (self.h_max / height_tensor.max())
+
             # ASM field propagation
             if self.device.type != "cpu" and use_checkpoint:
-                U, h_diff = checkpoint(forward_propagate, height_raw, blur_radius, use_reentrant=False)
+                U = checkpoint(forward_propagate, height_tensor, use_reentrant=False)
             else:
-                U, h_diff = forward_propagate(height_raw, blur_radius)
+                U = forward_propagate(height_tensor)
 
             # Sensor power matrix (Ns, Ni)
             P = torch.einsum('sxy,xyk,ki->si', self.sensor_masks, U.abs() ** 2, self.power)
@@ -372,7 +357,10 @@ class Optimizer:
             l_eta = opt.weightEta * P_eta
 
             # Minimize pixel gradient
-            l_grad = opt.weightGrad * h_diff
+            height_tensor = height_tensor
+            diff_x = torch.abs(height_tensor[:, 1:] - height_tensor[:, :-1]).mean()
+            diff_y = torch.abs(height_tensor[1:, :] - height_tensor[:-1, :]).mean()
+            l_grad = opt.weightGrad * (diff_x + diff_y) / self.pitch
 
             # Maximum height limit
             l_height = self.h_max - self.exp.doe.maxHeight
@@ -380,17 +368,14 @@ class Optimizer:
             # Total loss function with weights
             loss = l_ortho + l_eta + l_grad + l_height
 
-            # Backpropagation
-            loss.backward()
-            optimizer.step()
-
-            h_max = self.h_max - self.exp.optimizer.maxHeightFactor * (self.h_max - self.exp.doe.maxHeight)
-            self.h_max = float(max(h_max, self.exp.doe.maxHeight))
-            delta_h = self.h_max - self.exp.doe.maxHeight
+            h_max = height_tensor.max()
+            h_limit = h_max - self.exp.optimizer.maxHeightFactor * (h_max - self.exp.doe.maxHeight)
+            self.h_max = float(max(h_limit, self.exp.doe.maxHeight))
+            delta_h = h_max - self.exp.doe.maxHeight
 
             # EMA smoothing step
             if ema.step((l_ortho + l_eta).item() + l_grad.item()) or i == 0:
-                best_raw = height_raw.detach().cpu().numpy()
+                best_height = height_tensor.detach().cpu().numpy()
                 P_over = P.mean() / (self.count ** 2 * self.sensor.area_ratio)
                 log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} | {l_grad.item():7.2f} || {S_rel:7.3f} | {P_over:7.3f} | {delta_h:7.3f}"
 
@@ -405,8 +390,12 @@ class Optimizer:
                         f"Converged [{self.count}]: Improvement < {ema.threshold * 100}% for {ema.patience} iterations.")
                     break
 
+            # Backpropagation
+            loss.backward()
+            optimizer.step()
+
         if ema.has_finished:
-            height = self.get_height(best_raw, blur_radius)
+            height = best_height
             logger.info(f"    Final maximum height: {np.max(height):.2f} µm")
         else:
             height = None
