@@ -363,15 +363,24 @@ class Optimizer:
             l_grad = opt.weightGrad * (diff_x + diff_y) / self.pitch
 
             # Maximum height limit
-            l_height = self.h_max - self.exp.doe.maxHeight
+            h_max = height_tensor.detach().max()
+            if h_max <= self.exp.doe.maxHeight:
+                self.h_max = self.exp.doe.maxHeight
+            else:
+                self.h_max = h_max - self.exp.optimizer.maxHeightFactor * (h_max - self.exp.doe.maxHeight)
+            delta_h = h_max - self.exp.doe.maxHeight
+            l_height = self.exp.weightHeight * 10 ** (delta_h / self.exp.doe.maxHeight)
+
+            # # Maximum height limit
+            # l_height = self.h_max - self.exp.doe.maxHeight
 
             # Total loss function with weights
             loss = l_ortho + l_eta + l_grad + l_height
 
-            h_max = height_tensor.max()
-            h_limit = h_max - self.exp.optimizer.maxHeightFactor * (h_max - self.exp.doe.maxHeight)
-            self.h_max = float(max(h_limit, self.exp.doe.maxHeight))
-            delta_h = h_max - self.exp.doe.maxHeight
+            # h_max = height_tensor.detach().max()
+            # h_limit = h_max - self.exp.optimizer.maxHeightFactor * (h_max - self.exp.doe.maxHeight)
+            # self.h_max = float(max(h_limit, self.exp.doe.maxHeight))
+            # delta_h = h_max - self.exp.doe.maxHeight
 
             # EMA smoothing step
             if ema.step((l_ortho + l_eta).item() + l_grad.item()) or i == 0:
