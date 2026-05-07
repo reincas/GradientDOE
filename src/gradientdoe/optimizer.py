@@ -384,13 +384,13 @@ class Optimizer:
             delta_h = self.h_max - self.exp.doe.maxHeight
 
             # EMA smoothing step
-            if ema.step((l_ortho + l_eta).item()):
+            if ema.step((l_ortho + l_eta).item()) or i == 0:
                 best_raw = height_raw.detach().cpu().numpy()
                 P_over = P.mean() / (self.count ** 2 * self.sensor.area_ratio)
                 log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} || {S_rel:7.3f} | {P_over:7.3f} | {delta_h:7.3f}"
 
             # Logging
-            if ema.has_finished or time.time() - t > 2:
+            if i == 0 or ema.has_finished or time.time() - t > 2:
                 t = time.time()
                 if log:
                     logger.info(f"{self.count:5d} | {i:5d} | {ema.counter:3d} || {log}")
