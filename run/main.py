@@ -15,7 +15,7 @@ from pathlib import Path
 import sys
 
 from gradientdoe.experiment import Experiment
-from gradientdoe.optimizer import Optimizer
+from gradientdoe.optimizer import Optimizer, gaussian_blur
 from gradientdoe.spectrum import opt_spectra, show_opt
 
 logger = logging.getLogger("main")
@@ -196,6 +196,8 @@ if __name__ == '__main__':
             opt_count = count
         else:
             height = optimizer.interpolate_height(opt_height, count)
+            blur_radius = exp.doe.blurRadius / pitch
+            height = gaussian_blur(height, blur_radius)
         write_height(height, count, height_path)
         count *= 2
         pitch /= 2
