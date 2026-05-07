@@ -369,7 +369,7 @@ class Optimizer:
             else:
                 self.h_max = h_max - self.exp.optimizer.maxHeightFactor * (h_max - self.exp.doe.maxHeight)
             delta_h = h_max - self.exp.doe.maxHeight
-            l_height = self.exp.weightHeight * 10 ** (delta_h / self.exp.doe.maxHeight)
+            l_height = opt.weightHeight * 10 ** (delta_h / self.exp.doe.maxHeight)
 
             # # Maximum height limit
             # l_height = self.h_max - self.exp.doe.maxHeight
