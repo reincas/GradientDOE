@@ -111,7 +111,7 @@ class Experiment(Parameter):
         self.optimizer = OptParameter(self.optimizer)
 
     def adjust_parameters(self, wavelengths, spectra, material):
-        logger.debug("Initializing experiment")
+        logger.info("Initializing experiment")
 
         # List of wavelengths
         self.setup.wavelengths = wavelengths
@@ -119,7 +119,7 @@ class Experiment(Parameter):
         # Spectra of all specimen
         self.setup.sources = spectra
         name = ", ".join([x.model for x in spectra])
-        logger.debug(f"    Specimen: {name}")
+        logger.info(f"    Specimen: {name}")
 
         # Width of the calculation window
         sensor_size = self.sensor.horizontalCount * self.sensor.pitch
@@ -127,7 +127,7 @@ class Experiment(Parameter):
         pitch_final = self.doe.pitch
         while count_final < sensor_size / pitch_final:
             count_final *= 2
-        logger.debug(f"    Calculation window: {count_final * pitch_final * 1e-3:.3f} mm")
+        logger.info(f"    Calculation window: {count_final * pitch_final * 1e-3:.3f} mm")
 
         # Initial pixel count
         count_initial = count_final
@@ -138,21 +138,21 @@ class Experiment(Parameter):
         self.grid.pitch = pitch_initial
         self.grid.count = count_initial
         self.grid.countFinal = count_final
-        logger.debug(f"    Initial pixel count / pitch: {count_initial} / {pitch_initial:.2f} µm")
-        logger.debug(f"    Final pixel count / pitch: {count_final} / {pitch_final:.2f} µm")
+        logger.info(f"    Initial pixel count / pitch: {count_initial} / {pitch_initial:.2f} µm")
+        logger.info(f"    Final pixel count / pitch: {count_final} / {pitch_final:.2f} µm")
 
         z = self.setup.distance
         zc = count_initial * pitch_initial ** 2 / min(wavelengths)
         assert z >= zc, f"Propagation distance {z:.0f} µm below minimum for given grid ({zc:.0f} µm)."
-        logger.debug(f"    Sensor distance: {z * 1e-3:.3f} mm")
+        logger.info(f"    Sensor distance: {z * 1e-3:.3f} mm")
 
         self.doe.material = IndexSpectrum(material, wavelengths)
         mean = np.mean(np.array(self.doe.material.values, dtype=np.float32))
-        logger.debug(f"    Mean refractive index: {mean:.4f}")
+        logger.info(f"    Mean refractive index: {mean:.4f}")
 
         model = self.sensor.model
         eta = Spectrum.read(f"../sensors/{model}.json")
         eta = spectra[0].interpolate(eta)
         self.sensor.eta = eta
         mean = np.mean(np.array(self.sensor.eta.values, dtype=np.float32))
-        logger.debug(f"    Mean sensor efficiency: {mean:.3f}")
+        logger.info(f"    Mean sensor efficiency: {mean:.3f}")

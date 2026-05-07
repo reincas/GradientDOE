@@ -96,20 +96,20 @@ EXPERIMENT = {
 }
 
 
-def init_logger(root_path):
+def init_logger(root_path, level=logging.INFO):
     root = logging.getLogger()
-    root.setLevel(logging.DEBUG)
+    root.setLevel(level)
     log_format = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     file = root_path / "main.log"
     file_h = logging.FileHandler(file, mode="a")
     file_h.setFormatter(log_format)
-    file_h.setLevel(logging.DEBUG)
+    file_h.setLevel(level)
     root.addHandler(file_h)
 
     console_h = logging.StreamHandler()
     console_h.setFormatter(log_format)
-    console_h.setLevel(logging.DEBUG)
+    console_h.setLevel(level)
     root.addHandler(console_h)
 
 

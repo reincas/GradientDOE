@@ -216,7 +216,7 @@ def show_opt(spectra):
     for i in range(len(wavelengths)):
         head = f"{wavelengths[i]:.6f} {unit}:"
         intensities = ", ".join([f"{spectra[j].values[i]:.3f}" for j in range(len(spectra))])
-        logger.debug(f"{head:12s} {intensities}")
+        logger.info(f"{head:12s} {intensities}")
     intensities = ", ".join([f"{spectra[j].coverage:.3f}" for j in range(len(spectra))])
     head = f"coverage[{len(wavelengths)}]:"
-    logger.debug(f"{head:12s} {intensities}")
+    logger.info(f"{head:12s} {intensities}")

@@ -116,9 +116,9 @@ class MemoryTracker:
         t = torch.cuda.get_device_properties(0).total_memory
         r = torch.cuda.memory_reserved(0)
         a = torch.cuda.memory_allocated(0)
-        logger.debug(f"Total VRAM: {t / 1024 ** 2:.2f} MB")
-        logger.debug(f"Reserved:   {r / 1024 ** 2:.2f} MB")
-        logger.debug(f"Allocated:  {a / 1024 ** 2:.2f} MB")
+        logger.info(f"Total VRAM: {t / 1024 ** 2:.2f} MB")
+        logger.info(f"Reserved:   {r / 1024 ** 2:.2f} MB")
+        logger.info(f"Allocated:  {a / 1024 ** 2:.2f} MB")
         self.allocated = a
 
     def tick(self, label, expect=None):
@@ -130,10 +130,10 @@ class MemoryTracker:
         a = f"{a / 1024 ** 2:4.0f} MB"
         n = f"{diff / 1024 ** 2:4.0f} MB"
         if expect is None:
-            logger.debug(f"-VRAM- | {label:10s} | Allocated: {a} | new: {n}")
+            logger.info(f"-VRAM- | {label:10s} | Allocated: {a} | new: {n}")
         else:
             e = f"{expect / 1024 ** 2:4.0f} MB"
-            logger.debug(f"-VRAM- | {label:10s} | Allocated: {a} | new: {n} | expected: {e}")
+            logger.info(f"-VRAM- | {label:10s} | Allocated: {a} | new: {n} | expected: {e}")
 
 class Optimizer:
     count: int
@@ -153,18 +153,18 @@ class Optimizer:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self.device = torch.device(device)
-        logger.debug(f"Running on {self.device.type.upper()} with {memory(self.device) / 1024 ** 3:.2f} GB")
+        logger.info(f"Running on {self.device.type.upper()} with {memory(self.device) / 1024 ** 3:.2f} GB")
         if self.device.type == "cuda":
             torch.cuda.empty_cache()
-            logger.debug(f"Device Name: {torch.cuda.get_device_name(0)}")
+            logger.info(f"Device Name: {torch.cuda.get_device_name(0)}")
             major, minor = torch.cuda.get_device_capability(0)
-            logger.debug(f"Compute Capability: {major}.{minor}")
+            logger.info(f"Compute Capability: {major}.{minor}")
             # t = torch.cuda.get_device_properties(0).total_memory
             # r = torch.cuda.memory_reserved(0)
             # a = torch.cuda.memory_allocated(0)
-            # logger.debug(f"Total VRAM: {t / 1024 ** 3:.2f} GB")
-            # logger.debug(f"Reserved:   {r / 1024 ** 3:.2f} GB")
-            # logger.debug(f"Allocated:  {a / 1024 ** 3:.2f} GB")
+            # logger.info(f"Total VRAM: {t / 1024 ** 3:.2f} GB")
+            # logger.info(f"Reserved:   {r / 1024 ** 3:.2f} GB")
+            # logger.info(f"Allocated:  {a / 1024 ** 3:.2f} GB")
         self.mem = MemoryTracker(self.device)
 
         # Initialise DOE
@@ -206,7 +206,7 @@ class Optimizer:
     def init_height(self):
         """ Return random height profile in the range [0.25 * h_max, 0.75 * h_max]. """
         height = (np.random.rand(self.count, self.count) + 0.5) * 0.5 * self.h_max
-        logger.debug(f"Initial height profile: {np.min(height):.2f} - {np.max(height):.2f} µm")
+        logger.info(f"Initial height profile: {np.min(height):.2f} - {np.max(height):.2f} µm")
         return height
 
     def get_height(self, h_raw):
@@ -310,15 +310,15 @@ class Optimizer:
         if self.device.type == "cuda":
             torch.cuda.empty_cache()
 
-        logger.debug("Starting Optimization")
+        logger.info("Starting Optimization")
         self.mem.tick("run")
 
         lr = format(float(format(learning_rate, ".2g")), "f").rstrip('0').rstrip('.')
-        logger.debug(f"Learning Rate: {lr}")
+        logger.info(f"Learning Rate: {lr}")
 
         # Initialize optimiser target
         self.h_max = float(max(np.max(height) * (1 + self.exp.optimizer.maxHeightFactor), self.exp.doe.maxHeight))
-        logger.debug(f"Damping maxHeight: {self.h_max:.2f} -> {self.exp.doe.maxHeight:.2f} µm")
+        logger.info(f"Damping maxHeight: {self.h_max:.2f} -> {self.exp.doe.maxHeight:.2f} µm")
         height_raw = torch.tensor(self.get_raw(height), device=self.device, dtype=torch.float32, requires_grad=True)
         best_raw = height_raw.detach().clone()
         self.mem.tick("raw", height_raw.numel() * 4)
@@ -329,7 +329,7 @@ class Optimizer:
         self.mem.tick("adam")
 
         use_checkpoint = self.count >= opt.checkpointThreshold
-        logger.debug(f"Using checkpoint: {use_checkpoint}")
+        logger.info(f"Using checkpoint: {use_checkpoint}")
 
         # Initialize EMA smoothing (exponential moving average)
         ema = self.exp.optimizer.ema
@@ -402,10 +402,10 @@ class Optimizer:
                     if TRACK_MEM and self.device.type == "cuda":
                         a = torch.cuda.memory_allocated(0)
                         message += f" || {a / 1024 ** 2:.0f} MB"
-                    logger.debug(message)
+                    logger.info(message)
 
                 if ema.has_finished and l_height < opt.maxHeightThreshold * self.exp.doe.maxHeight:
-                    logger.debug(
+                    logger.info(
                         f"Converged [{self.count}]: Improvement < {ema.threshold * 100}% for {ema.patience} iterations.")
                     break
             if i == 0:
