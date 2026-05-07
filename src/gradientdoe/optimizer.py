@@ -259,29 +259,30 @@ class Optimizer:
         if self.device.type == "cuda":
             torch.cuda.empty_cache()
 
-        # Prepare height tensor
-        # Dimension hint:    float(N, N)
-        # Memory allocation: 64 MB for N = 4k (height_tensor)
-        if isinstance(height, torch.Tensor):
-            height_tensor = height.to(self.device)
-        else:
-            height_tensor = torch.tensor(height, device=self.device, dtype=torch.float32)
-
-        # Propagate unit fields to the sensor plane
-        N = count_s
         with torch.no_grad():
+            # Prepare height tensor
+            # Dimension hint:    float(N, N)
+            # Memory allocation: 64 MB for N = 4k (height_tensor)
+            if isinstance(height, torch.Tensor):
+                height_tensor = height.to(self.device)
+            else:
+                height_tensor = torch.tensor(height, device=self.device, dtype=torch.float32)
+
+            # Propagate unit fields to the sensor plane
             U = self.doe.fields_from_height(height_tensor)
             U = method.propagate(U, jitter=False)
+            del height_tensor
 
             # Power distribution in the sensor plane for all specimen (N, N, Ni)
             Ps = torch.einsum('xyk,ki->xyi', U.abs() ** 2, self.power)
+            del U
 
             # Sensor power vs. specimen matrix (Ns, Ni)
             P = torch.einsum('sxy,xyi->si', self.sensor_masks, Ps)
 
         # Normalise powers as numpy arrays
-        P = P.cpu().numpy() / N ** 2
-        Ps = Ps.cpu().numpy() / N ** 2
+        P = P.cpu().numpy() / count_s ** 2
+        Ps = Ps.cpu().numpy() / count_s ** 2
 
         # Return results
         return P, Ps
