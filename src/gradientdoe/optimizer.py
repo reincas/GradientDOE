@@ -414,6 +414,7 @@ class Optimizer:
 
         if ema.has_finished:
             height = self.get_height(best_raw, blur_radius)
+            logger.info(f"    Final maximum height: {np.max(height):.2f} µm")
         else:
             height = None
         return height
