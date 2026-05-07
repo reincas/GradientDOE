@@ -459,7 +459,7 @@ class Optimizer:
 
         if ema.has_finished:
             # height = best_height
-            height = self.get_height(best_raw)
+            height = self.get_height(best_raw, blur_radius)
         else:
             height = None
         return height
