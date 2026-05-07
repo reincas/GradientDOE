@@ -345,9 +345,7 @@ class Optimizer:
                 self.mem.tick("zero")
 
             # ASM field propagation
-            #U = self.doe.fields_from_height(self.get_height(height_raw))
-            #U = self.asm.propagate(U, self.jitter)
-            if use_checkpoint:
+            if self.device.type != "cpu" and use_checkpoint:
                 U = checkpoint(forward_propagate, height_raw, use_reentrant=False)
             else:
                 U = forward_propagate(height_raw)
