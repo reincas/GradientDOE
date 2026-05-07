@@ -75,40 +75,39 @@ def get_kernel_size(radius):
 def gaussian_blur(input, radius: float) -> torch.Tensor:
     """ Applies Gaussian blur to a 2D tensor. """
 
-    return input
-    # is_tensor = isinstance(input, torch.Tensor)
-    # if not is_tensor:
-    #     input = torch.Tensor(input, device="cpu")
-    #
-    # assert input.dim() == 2
-    # assert radius >= 0
-    #
-    # input = input.unsqueeze(0).unsqueeze(0)
-    #
-    # # Odd kernel size
-    # kernel_size = get_kernel_size(radius)
-    # if kernel_size <= 1:
-    #     blurred = input
-    #
-    # else:
-    #     # Normalised 1D Gaussian distribution
-    #     coords = torch.arange(kernel_size, device=input.device).float() - (kernel_size - 1) / 2
-    #     g_1d = torch.exp(-(coords ** 2) / (2 * radius ** 2))
-    #     g_1d = g_1d / g_1d.sum()
-    #
-    #     # 2D Gaussian kernel
-    #     g_2d = g_1d.view(-1, 1) @ g_1d.view(1, -1)
-    #     kernel = g_2d.view(1, 1, kernel_size, kernel_size)
-    #
-    #     # Convolution with padding to maintain spatial dimensions
-    #     padding = kernel_size // 2
-    #     blurred = F.conv2d(input, kernel, padding=padding)
-    #
-    # blurred = blurred.squeeze()
-    # if not is_tensor:
-    #     blurred = blurred.numpy()
-    #
-    # return blurred
+    is_tensor = isinstance(input, torch.Tensor)
+    if not is_tensor:
+        input = torch.Tensor(input, device="cpu")
+
+    assert input.dim() == 2
+    assert radius >= 0
+
+    input = input.unsqueeze(0).unsqueeze(0)
+
+    # Odd kernel size
+    kernel_size = get_kernel_size(radius)
+    if kernel_size <= 1:
+        blurred = input
+
+    else:
+        # Normalised 1D Gaussian distribution
+        coords = torch.arange(kernel_size, device=input.device).float() - (kernel_size - 1) / 2
+        g_1d = torch.exp(-(coords ** 2) / (2 * radius ** 2))
+        g_1d = g_1d / g_1d.sum()
+
+        # 2D Gaussian kernel
+        g_2d = g_1d.view(-1, 1) @ g_1d.view(1, -1)
+        kernel = g_2d.view(1, 1, kernel_size, kernel_size)
+
+        # Convolution with padding to maintain spatial dimensions
+        padding = kernel_size // 2
+        blurred = F.conv2d(input, kernel, padding=padding)
+
+    blurred = blurred.squeeze()
+    if not is_tensor:
+        blurred = blurred.numpy()
+
+    return blurred
 
 
 class Ema(Parameter):
@@ -314,8 +313,11 @@ class Optimizer:
 
         def forward_propagate(h_raw, radius):
             h = self.get_height(h_raw, radius)
+            diff_x = torch.abs(h[:, 1:] - h[:, :-1]).mean()
+            diff_y = torch.abs(h[1:, :] - h[:-1, :]).mean()
+            h_diff = (diff_x + diff_y) / self.pitch
             U = self.doe.fields_from_height(h)
-            return self.asm.propagate(U, self.jitter)
+            return self.asm.propagate(U, self.jitter), h_diff
 
         if self.device.type == "cuda":
             torch.cuda.empty_cache()
@@ -359,9 +361,9 @@ class Optimizer:
 
             # ASM field propagation
             if self.device.type != "cpu" and use_checkpoint:
-                U = checkpoint(forward_propagate, height_raw, blur_radius, use_reentrant=False)
+                U, h_diff = checkpoint(forward_propagate, height_raw, blur_radius, use_reentrant=False)
             else:
-                U = forward_propagate(height_raw, blur_radius)
+                U, h_diff = forward_propagate(height_raw, blur_radius)
 
             # Sensor power matrix (Ns, Ni)
             P = torch.einsum('sxy,xyk,ki->si', self.sensor_masks, U.abs() ** 2, self.power)
@@ -376,10 +378,8 @@ class Optimizer:
             P_eta = -torch.log(P.mean() / self.count ** 2 + 1e-9)
             l_eta = opt.weightEta * P_eta
 
-            h = self.get_height(height_raw, 0.0)
-            diff_x = torch.abs(h[:, 1:] - h[:, :-1]).mean()
-            diff_y = torch.abs(h[1:, :] - h[:-1, :]).mean()
-            l_grad = opt.weightGrad * (diff_x + diff_y)
+            # Minimize pixel gradient
+            l_grad = opt.weightGrad * h_diff
 
             # Maximum height limit
             l_height = self.h_max - self.exp.doe.maxHeight
