@@ -307,12 +307,12 @@ class Optimizer:
             logger.info(f"    Maximum height: {np.max(height):.2f} µm")
 
         # Initialize optimiser target
-        height_tensor = torch.tensor(height, device=self.device, dtype=torch.float32, requires_grad=True)
+        height_opt = torch.tensor(height, device=self.device, dtype=torch.float32, requires_grad=True)
         best_height = height
 
         # Initialize optimiser
         opt = self.exp.optimizer
-        optimizer = torch.optim.Adam([height_tensor], lr=learning_rate)
+        optimizer = torch.optim.Adam([height_opt], lr=learning_rate)
 
         use_checkpoint = self.count >= opt.checkpointThreshold
         logger.info(f"    Using checkpoint: {use_checkpoint}")
@@ -332,7 +332,7 @@ class Optimizer:
             optimizer.zero_grad(set_to_none=True)
 
             # Height adjustment
-            height_tensor = gaussian_blur(height_tensor, blur_radius)
+            height_tensor = gaussian_blur(height_opt, blur_radius)
             height_tensor = height_tensor - height_tensor.min()
             if height_tensor.max() > self.h_max:
                 height_tensor = height_tensor * (self.h_max / height_tensor.max())
