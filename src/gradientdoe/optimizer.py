@@ -394,7 +394,7 @@ class Optimizer:
                 if log:
                     logger.info(f"{self.count:5d} | {i:5d} | {ema.counter:3d} || {log}")
 
-                if ema.has_finished and l_height < opt.maxHeightThreshold * self.exp.doe.maxHeight:
+                if ema.has_finished and delta_h < opt.maxHeightThreshold * self.exp.doe.maxHeight:
                     logger.info(
                         f"Converged [{self.count}]: Improvement < {ema.threshold * 100}% for {ema.patience} iterations.")
                     break
