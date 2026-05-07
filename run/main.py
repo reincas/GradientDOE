@@ -40,9 +40,9 @@ MATERIALS = {
 EXPERIMENT = {
     "doe": {
         "material": None,  # Determined by main()
-        "pitch": 0.5,
+        "pitch": 0.25,
         "pitchUnit": "µm",
-        "count": 4096,
+        "count": 8192,
         "maxHeight": 6,
         "maxHeightUnit": "µm",
     },
@@ -172,7 +172,7 @@ if __name__ == '__main__':
 
     height = None
     i = 0
-    while count <= exp.grid.countFinal:
+    while count <= min(exp.optimizer.checkpointThreshold, exp.grid.countFinal):
         optimizer = Optimizer(exp)
         if height is None:
             height = optimizer.init_height()

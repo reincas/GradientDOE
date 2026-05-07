@@ -224,8 +224,8 @@ if __name__ == "__main__":
     # Initialise optimizer and load height profile
     exp = Experiment.read(root / "parameters.json")
     count = exp.grid.count
-    while count <= 8192:
-        device = None if count < 8192 else "cpu"
+    while count <= exp.grid.countFinal:
+        device = None if count <= exp.optimizer.checkpointThreshold else "cpu"
         optimizer = Optimizer(exp, device)
         plot(optimizer, count, root)
         count *= 2
