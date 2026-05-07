@@ -17,7 +17,7 @@ from pathlib import Path
 from PIL import Image
 import sys
 
-from gradientdoe.experiment import Experiment, next_power_of_2
+from gradientdoe.experiment import Experiment
 from gradientdoe.optimizer import Optimizer
 
 logger = logging.getLogger("plot")
@@ -174,17 +174,8 @@ def plot(optimizer, count, root):
 
     # Height profile
     height_path = root / "height.h5"
-    counts = get_counts(height_path)
-    if count in counts:
-        height = read_height(height_path, count)
-        logger.info(f"Optimised height profile:")
-    else:
-        assert count == next_power_of_2(count), f"Pixel count {count} is not a power of 2."
-        assert count > max(counts)
-        count_opt = max(counts)
-        height_opt = read_height(height_path, count_opt)
-        height = optimizer.interpolate_height(height_opt, count)
-        logger.info(f"Interpolated height profile:")
+    height = read_height(height_path, count)
+    logger.info(f"Phase plate height profile:")
 
     # Pixel pitch
     M = count // exp.grid.count
