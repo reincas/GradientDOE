@@ -366,30 +366,21 @@ class Optimizer:
             if h_max <= self.exp.doe.maxHeight:
                 self.h_max = self.exp.doe.maxHeight
             else:
-                self.h_max = h_max - self.exp.optimizer.maxHeightFactor * (h_max - self.exp.doe.maxHeight)
-            delta_h = h_max - self.exp.doe.maxHeight
-            #l_height = opt.weightHeight * h_max / self.exp.doe.maxHeight
-
-            # # Maximum height limit
-            # l_height = self.h_max - self.exp.doe.maxHeight
+                self.h_max = h_max - opt.maxHeightFactor * (h_max - self.exp.doe.maxHeight)
 
             # Total loss function with weights
-            loss = l_ortho + l_eta + l_grad #+ l_height
-
-            # h_max = height_tensor.detach().max()
-            # h_limit = h_max - self.exp.optimizer.maxHeightFactor * (h_max - self.exp.doe.maxHeight)
-            # self.h_max = float(max(h_limit, self.exp.doe.maxHeight))
-            # delta_h = h_max - self.exp.doe.maxHeight
+            loss = l_ortho + l_eta + l_grad
 
             # EMA smoothing step
             if ema.step((l_ortho + l_eta).item() + l_grad.item()) or i == 0:
                 best_height = height_tensor.detach().cpu().numpy()
-                diff_x = torch.abs(height_tensor[:, 1:] - height_tensor[:, :-1]).max()
-                diff_y = torch.abs(height_tensor[1:, :] - height_tensor[:-1, :]).max()
-                max_grad = max(diff_x.item(), diff_y.item()) / self.pitch
+                diff_x = np.max(np.abs(best_height[:, 1:] - best_height[:, :-1]))
+                diff_y = np.max(np.abs(best_height[1:, :] - best_height[:-1, :]))
                 P_over = P.mean() / (self.count ** 2 * self.sensor.area_ratio)
+                max_grad = max(diff_x, diff_y) / self.pitch
+                h_rel = h_max / self.exp.doe.maxHeight
                 log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} | {l_grad.item():7.2f}" + \
-                      f" || {S_rel:7.3f} | {P_over:7.3f} | {max_grad:7.3f} | {h_max:7.3f}"
+                      f" || {S_rel:7.3f} | {P_over:7.3f} | {max_grad:7.3f} | {h_rel:7.3f}"
 
             # Logging
             if i == 0 or ema.has_finished or time.time() - t > 2:
@@ -397,7 +388,7 @@ class Optimizer:
                 if log:
                     logger.info(f"{self.count:5d} | {i:5d} | {ema.counter:3d} || {log}")
 
-                if ema.has_finished and delta_h < opt.maxHeightThreshold * self.exp.doe.maxHeight:
+                if ema.has_finished and (h_max / self.exp.doe.maxHeight - 1) < opt.maxHeightThreshold:
                     logger.info(
                         f"Converged [{self.count}]: Improvement < {ema.threshold * 100}% for {ema.patience} iterations.")
                     break
