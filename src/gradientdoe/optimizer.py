@@ -357,8 +357,8 @@ class Optimizer:
             l_eta = opt.weightEta * P_eta
 
             # Minimize pixel gradient
-            diff_x = torch.abs(height_tensor[:, 1:] - height_tensor[:, :-1]).mean()
-            diff_y = torch.abs(height_tensor[1:, :] - height_tensor[:-1, :]).mean()
+            diff_x = torch.abs(height_tensor[:, 1:] - height_tensor[:, :-1]).max()
+            diff_y = torch.abs(height_tensor[1:, :] - height_tensor[:-1, :]).max()
             l_grad = opt.weightGrad * (diff_x + diff_y) / self.pitch
 
             # Maximum height limit
