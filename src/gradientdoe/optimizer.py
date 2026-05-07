@@ -379,7 +379,7 @@ class Optimizer:
             h = self.get_height(height_raw, 0.0)
             diff_x = torch.abs(h[:, 1:] - h[:, :-1]).mean()
             diff_y = torch.abs(h[1:, :] - h[:-1, :]).mean()
-            l_grad = 1000 * (diff_x + diff_y)
+            l_grad = opt.weightGrad * (diff_x + diff_y)
 
             # Maximum height limit
             l_height = self.h_max - self.exp.doe.maxHeight
