@@ -14,7 +14,6 @@ import sys
 
 from gradientdoe.experiment import Experiment, next_power_of_2
 from gradientdoe.optimizer import Optimizer
-from run.main import get_path
 
 
 def get_next_preferred_number(x: float) -> float:
@@ -202,6 +201,14 @@ def plot(optimizer, count, root):
     path = root / f"power_{count}.png"
     store_power_plots(Ps, P, pitch, optimizer.sensor, cmap, names, path)
     print(f"    Stored sensor power image: {path}")
+
+
+def get_path():
+    """ Returns the first command line argument as a Path object. """
+    try:
+        return Path(sys.argv[1])
+    except IndexError:
+        return None
 
 
 if __name__ == "__main__":
