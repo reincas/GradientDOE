@@ -83,6 +83,8 @@ def gaussian_blur(input, radius: float) -> torch.Tensor:
     assert input.dim() == 2
     assert radius >= 0
 
+    input = input.unsqueeze(0).unsqueeze(0)
+
     # Odd kernel size
     kernel_size = get_kernel_size(radius)
     if kernel_size <= 1:
@@ -102,6 +104,7 @@ def gaussian_blur(input, radius: float) -> torch.Tensor:
         padding = kernel_size // 2
         blurred = F.conv2d(input, kernel, padding=padding)
 
+    blurred = blurred.squeeze()
     if not is_tensor:
         blurred = blurred.numpy()
 
