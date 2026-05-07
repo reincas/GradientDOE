@@ -357,8 +357,8 @@ class Optimizer:
             l_eta = opt.weightEta * P_eta
 
             # Minimize pixel gradient
-            diff_x = torch.abs(height_tensor[:, 1:] - height_tensor[:, :-1]).max()
-            diff_y = torch.abs(height_tensor[1:, :] - height_tensor[:-1, :]).max()
+            diff_x = torch.abs(height_tensor[:, 1:] - height_tensor[:, :-1]).mean()
+            diff_y = torch.abs(height_tensor[1:, :] - height_tensor[:-1, :]).mean()
             l_grad = opt.weightGrad * (diff_x + diff_y) / self.pitch
 
             # Maximum height limit
@@ -374,9 +374,9 @@ class Optimizer:
             # EMA smoothing step
             if ema.step((l_ortho + l_eta).item() + l_grad.item()) or i == 0:
                 best_height = height_tensor.detach().cpu().numpy()
+                P_over = P.mean() / (self.count ** 2 * self.sensor.area_ratio)
                 diff_x = np.max(np.abs(best_height[:, 1:] - best_height[:, :-1]))
                 diff_y = np.max(np.abs(best_height[1:, :] - best_height[:-1, :]))
-                P_over = P.mean() / (self.count ** 2 * self.sensor.area_ratio)
                 max_grad = max(diff_x, diff_y) / self.pitch
                 h_rel = h_max / self.exp.doe.maxHeight
                 log = f"{l_ortho.item():7.2f} | {l_eta.item():7.2f} | {l_grad.item():7.2f}" + \

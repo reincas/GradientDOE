@@ -82,7 +82,6 @@ class OptParameter(Parameter):
     expOrtho: int
     weightEta: float
     weightGrad: float
-    weightHeight: float
     jitter: bool
     ema: Ema
 
