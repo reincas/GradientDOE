@@ -22,6 +22,8 @@ class DoeParameter(Parameter):
     count: int
     maxHeight: float
     maxHeightUnit: str
+    blurRadius: float
+    blurRadiusUnit: str
 
     def __init__(self, data):
         super().__init__(data)

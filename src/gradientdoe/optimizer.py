@@ -10,6 +10,7 @@ import psutil
 import time
 import torch
 from torch.utils.checkpoint import checkpoint
+import torch.nn.functional as F
 
 from .parameter import Parameter
 from .propagate import AngularSpectrumMethod
@@ -66,6 +67,39 @@ def power_spectra(setup, sensor):
     return power
 
 
+def get_kernel_size(radius):
+    """ Return the Gaussian kernel size for a given radius. """
+
+    return 2 * round(4 * radius) + 1
+
+
+def gaussian_blur(input, radius: float) -> torch.Tensor:
+    """ Applies Gaussian blur to a 2D tensor. """
+
+    assert input.dim() == 2
+    assert radius >= 0
+
+    # Odd kernel size
+    kernel_size = get_kernel_size(radius)
+    if kernel_size <= 1:
+        return input
+
+    # 1D Gaussian distribution
+    coords = torch.arange(kernel_size).float() - (kernel_size - 1) / 2
+    g_1d = torch.exp(-(coords ** 2) / (2 * radius ** 2))
+    g_1d = g_1d / g_1d.sum()
+
+    # 2D Gaussian kernel
+    g_2d = g_1d.view(-1, 1) @ g_1d.view(1, -1)
+    kernel = g_2d.view(1, 1, kernel_size, kernel_size)
+
+    # Convolution with padding to maintain spatial dimensions
+    padding = kernel_size // 2
+    blurred = F.conv2d(input, kernel, padding=padding)
+
+    return blurred
+
+
 class Ema(Parameter):
     """ Exponential moving average class for loss recording. """
 
@@ -108,6 +142,7 @@ class Ema(Parameter):
     def has_finished(self):
         return self.counter >= self.patience
 
+
 class MemoryTracker:
     def __init__(self, device):
         self.device = device
@@ -134,6 +169,7 @@ class MemoryTracker:
         else:
             e = f"{expect / 1024 ** 2:4.0f} MB"
             logger.info(f"-VRAM- | {label:10s} | Allocated: {a} | new: {n} | expected: {e}")
+
 
 class Optimizer:
     count: int
@@ -209,12 +245,14 @@ class Optimizer:
         logger.info(f"Initial height profile: {np.min(height):.2f} - {np.max(height):.2f} µm")
         return height
 
-    def get_height(self, h_raw):
+    def get_height(self, h_raw, blur_radius):
         """ Generate DOE height profile (0...h_max) from raw height tensor (soft constraint). """
 
         if isinstance(h_raw, torch.Tensor):
-            return torch.sigmoid(h_raw) * self.h_max
-        return self.h_max / (1 + np.exp(-h_raw))
+            height = torch.sigmoid(h_raw) * self.h_max
+        else:
+            height = self.h_max / (1 + np.exp(-h_raw))
+        return gaussian_blur(height, blur_radius)
 
     def get_raw(self, height):
         if isinstance(height, torch.Tensor):
@@ -248,6 +286,11 @@ class Optimizer:
         # Back transformation to interpolated height profile
         padded_spectrum = torch.fft.ifftshift(padded_spectrum)
         height = torch.fft.ifft2(padded_spectrum)
+
+        # Apply Gaussian blur filter
+        pitch = self.pitch * height.shape[0] / self.count
+        radius = self.exp.doe.blurRadius / pitch
+        height = gaussian_blur(height, radius)
 
         # Scale and shift real part
         height = height.real * (M / N) ** 2
@@ -330,6 +373,9 @@ class Optimizer:
 
         use_checkpoint = self.count >= opt.checkpointThreshold
         logger.info(f"Using checkpoint: {use_checkpoint}")
+
+        blur_radius = self.exp.doe.blurRadius / self.pitch
+        logger.info(f"Gaussian blur kernel size: {get_kernel_size(blur_radius)}")
 
         # Initialize EMA smoothing (exponential moving average)
         ema = self.exp.optimizer.ema

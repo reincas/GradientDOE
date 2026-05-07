@@ -45,6 +45,8 @@ EXPERIMENT = {
         "count": 8192,
         "maxHeight": 6,
         "maxHeightUnit": "µm",
+        "blurRadius": 0.5,
+        "blurRadiusUnit": "µm",
     },
     "grid": {
         "pitch": 0,        # Determined by Experiment.adjust_parameters()
