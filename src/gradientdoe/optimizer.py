@@ -324,9 +324,15 @@ class Optimizer:
         lr = format(float(format(learning_rate, ".2g")), "f").rstrip('0').rstrip('.')
         logger.info(f"    Learning Rate: {lr}")
 
+        height -= np.min(height)
+        if np.max(height) > self.exp.doe.maxHeight:
+            self.h_max = float(max(np.max(height) * (1 + self.exp.optimizer.maxHeightFactor), self.exp.doe.maxHeight))
+            logger.info(f"    Damping maximum height: {self.h_max:.2f} -> {self.exp.doe.maxHeight:.2f} µm")
+        else:
+            self.h_max = self.exp.doe.maxHeight
+            logger.info(f"    Maximum height: {np.max(height):.2f} µm")
+
         # Initialize optimiser target
-        self.h_max = float(max(np.max(height) * (1 + self.exp.optimizer.maxHeightFactor), self.exp.doe.maxHeight))
-        logger.info(f"    Damping maxHeight: {self.h_max:.2f} -> {self.exp.doe.maxHeight:.2f} µm")
         height_raw = torch.tensor(self.get_raw(height), device=self.device, dtype=torch.float32, requires_grad=True)
         best_raw = height_raw.detach().clone()
 
