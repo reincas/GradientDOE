@@ -187,6 +187,7 @@ def plot(optimizer, count, root):
     print(f"    Stored height profile image: {path}")
 
     # Sensor power for every specimen
+    print(f"    Calculation device: {optimizer.device.type}")
     optimizer.set_grid(count, pitch)
     P, Ps = optimizer.step(height, optimizer.asm, count)
     names = [x.model for x in exp.setup.sources]
@@ -222,8 +223,9 @@ if __name__ == "__main__":
 
     # Initialise optimizer and load height profile
     exp = Experiment.read(root / "parameters.json")
-    optimizer = Optimizer(exp)
     count = exp.grid.count
     while count <= 8192:
+        device = None if count < 8192 else "cpu"
+        optimizer = Optimizer(exp, device)
         plot(optimizer, count, root)
         count *= 2

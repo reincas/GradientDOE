@@ -142,14 +142,17 @@ class Optimizer:
     sensor_masks: torch.Tensor
     asm: AngularSpectrumMethod
 
-    def __init__(self, exp):
+    def __init__(self, exp, device=None):
         # Total memory allocation: 1408 MB (self.sensor_masks, self.asm.kernels)
 
         self.exp = exp
         self.jitter = exp.optimizer.jitter
 
         # Initialise PyTorch environment
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if device is None:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self.device = torch.device(device)
         logger.debug(f"Running on {self.device.type.upper()} with {memory(self.device) / 1024 ** 3:.2f} GB")
         if self.device.type == "cuda":
             torch.cuda.empty_cache()
