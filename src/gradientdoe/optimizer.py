@@ -76,26 +76,34 @@ def get_kernel_size(radius):
 def gaussian_blur(input, radius: float) -> torch.Tensor:
     """ Applies Gaussian blur to a 2D tensor. """
 
+    is_tensor = isinstance(input, torch.Tensor)
+    if not is_tensor:
+        input = torch.Tensor(input, device="cpu")
+
     assert input.dim() == 2
     assert radius >= 0
 
     # Odd kernel size
     kernel_size = get_kernel_size(radius)
     if kernel_size <= 1:
-        return input
+        blurred = input
 
-    # 1D Gaussian distribution
-    coords = torch.arange(kernel_size).float() - (kernel_size - 1) / 2
-    g_1d = torch.exp(-(coords ** 2) / (2 * radius ** 2))
-    g_1d = g_1d / g_1d.sum()
+    else:
+        # 1D Gaussian distribution
+        coords = torch.arange(kernel_size).float() - (kernel_size - 1) / 2
+        g_1d = torch.exp(-(coords ** 2) / (2 * radius ** 2))
+        g_1d = g_1d / g_1d.sum()
 
-    # 2D Gaussian kernel
-    g_2d = g_1d.view(-1, 1) @ g_1d.view(1, -1)
-    kernel = g_2d.view(1, 1, kernel_size, kernel_size)
+        # 2D Gaussian kernel
+        g_2d = g_1d.view(-1, 1) @ g_1d.view(1, -1)
+        kernel = g_2d.view(1, 1, kernel_size, kernel_size)
 
-    # Convolution with padding to maintain spatial dimensions
-    padding = kernel_size // 2
-    blurred = F.conv2d(input, kernel, padding=padding)
+        # Convolution with padding to maintain spatial dimensions
+        padding = kernel_size // 2
+        blurred = F.conv2d(input, kernel, padding=padding)
+
+    if not is_tensor:
+        blurred = blurred.numpy()
 
     return blurred
 
