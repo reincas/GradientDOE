@@ -49,7 +49,7 @@ EXPERIMENT = {
         "count": 8 * 1024,
         "maxHeight": 6,
         "maxHeightUnit": "µm",
-        "blurRadius": 0.5,
+        "blurRadius": 1.0,
         "blurRadiusUnit": "µm",
     },
     "grid": {
