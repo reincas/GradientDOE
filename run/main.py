@@ -101,7 +101,7 @@ def init_logger(root_path):
     root.setLevel(logging.DEBUG)
     log_format = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-    file = root_path / "gradientdoe.log"
+    file = root_path / "main.log"
     file_h = logging.FileHandler(file, mode="a")
     file_h.setFormatter(log_format)
     file_h.setLevel(logging.DEBUG)

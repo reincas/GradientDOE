@@ -5,6 +5,7 @@
 ##########################################################################
 
 import h5py
+import logging
 import math
 from matplotlib import pyplot as plt, patches as patches
 import numpy as np
@@ -15,6 +16,24 @@ import sys
 from gradientdoe.experiment import Experiment, next_power_of_2
 from gradientdoe.optimizer import Optimizer
 
+logger = logging.getLogger("plot")
+
+
+def init_logger(root_path):
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+    log_format = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+    file = root_path / "plot.log"
+    file_h = logging.FileHandler(file, mode="a")
+    file_h.setFormatter(log_format)
+    file_h.setLevel(logging.DEBUG)
+    root.addHandler(file_h)
+
+    console_h = logging.StreamHandler()
+    console_h.setFormatter(log_format)
+    console_h.setLevel(logging.DEBUG)
+    root.addHandler(console_h)
 
 def get_next_preferred_number(x: float) -> float:
     """ Return the next larger 1*10^N, 2*10^N, or 5*10^N for a given positive float x. """
@@ -154,22 +173,22 @@ def plot(optimizer, count, root):
     counts = get_counts(height_path)
     if count in counts:
         height = read_height(height_path, count)
-        print(f"Optimised height profile:")
+        logger.info(f"Optimised height profile:")
     else:
         assert count == next_power_of_2(count), f"Pixel count {count} is not a power of 2."
         assert count > max(counts)
         count_opt = max(counts)
         height_opt = read_height(height_path, count_opt)
         height = optimizer.interpolate_height(height_opt, count)
-        print(f"Interpolated height profile:")
+        logger.info(f"Interpolated height profile:")
 
     # Pixel pitch
     M = count // exp.grid.count
     pitch = exp.grid.pitch / M
-    print(f"    Pixel pitch:     {pitch:.1f} µm")
-    print(f"    Pixel count:     {count}")
-    print(f"    Sensor distance: {exp.setup.distance / 1000:.1f} mm")
-    print(f"    Heights:         {np.min(height):.2f} - {np.max(height):.2f} µm")
+    logger.info(f"    Pixel pitch:     {pitch:.1f} µm")
+    logger.info(f"    Pixel count:     {count}")
+    logger.info(f"    Sensor distance: {exp.setup.distance / 1000:.1f} mm")
+    logger.info(f"    Heights:         {np.min(height):.2f} - {np.max(height):.2f} µm")
 
     # Prepare diagram formatting
     cmap = "viridis"
@@ -178,16 +197,16 @@ def plot(optimizer, count, root):
     # Store height profile as 16-bit PNG image
     path = root / f"profile_{count}.png"
     step_size = store_height_profile(height, path)
-    print(f"    Stored fabrication file: {path} with step size: {step_size} µm")
+    logger.info(f"    Stored fabrication file: {path} with step size: {step_size} µm")
 
     # Store height profile as plot
     name = exp.doe.material.model
     path = root / f"height_{count}.png"
     store_height_plot(height, pitch, cmap, name, path)
-    print(f"    Stored height profile image: {path}")
+    logger.info(f"    Stored height profile image: {path}")
 
     # Sensor power for every specimen
-    print(f"    Calculation device: {optimizer.device.type}")
+    logger.info(f"    Calculation device: {optimizer.device.type}")
     optimizer.set_grid(count, pitch)
     P, Ps = optimizer.step(height, optimizer.asm, count)
     names = [x.model for x in exp.setup.sources]
@@ -196,12 +215,12 @@ def plot(optimizer, count, root):
     fmt = f"    {{0:{size}s}}: {{1}}"
     for i, name in enumerate(names):
         values = ", ".join(f"{x:6.3f}" for x in P[:, i])
-        print(fmt.format(name, values))
+        logger.info(fmt.format(name, values))
 
     # Store power image with sensor outlines
     path = root / f"power_{count}.png"
     store_power_plots(Ps, P, pitch, optimizer.sensor, cmap, names, path)
-    print(f"    Stored sensor power image: {path}")
+    logger.info(f"    Stored sensor power image: {path}")
 
 
 def get_path():
@@ -215,11 +234,13 @@ def get_path():
 if __name__ == "__main__":
     root = get_path()
     if root is None:
-        print("Result folder required as command line argument.")
+        logger.info("Result folder required as command line argument.")
         sys.exit(1)
     if not root.exists():
-        print(f"Result folder {root} does not exist.")
+        logger.info(f"Result folder {root} does not exist.")
         sys.exit(2)
+
+    init_logger(root)
 
     # Initialise optimizer and load height profile
     exp = Experiment.read(root / "parameters.json")
