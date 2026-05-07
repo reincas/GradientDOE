@@ -315,8 +315,8 @@ class Optimizer:
 
         def forward_propagate(h_raw, radius):
             h = self.get_height(h_raw, radius)
-            diff_x = torch.abs(h[:, 1:] - h[:, :-1]).mean()
-            diff_y = torch.abs(h[1:, :] - h[:-1, :]).mean()
+            diff_x = torch.abs(h[:, 1:] - h[:, :-1]).max()
+            diff_y = torch.abs(h[1:, :] - h[:-1, :]).max()
             h_diff = (diff_x + diff_y) / self.pitch
             U = self.doe.fields_from_height(h)
             return self.asm.propagate(U, self.jitter), h_diff
