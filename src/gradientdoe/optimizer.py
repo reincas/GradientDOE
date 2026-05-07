@@ -345,8 +345,8 @@ class Optimizer:
     def run(self, height, learning_rate):
         assert isinstance(height, np.ndarray)
 
-        def forward_propagate(h_raw):
-            h = self.get_height(h_raw)
+        def forward_propagate(h_raw, radius):
+            h = self.get_height(h_raw, radius)
             U = self.doe.fields_from_height(h)
             return self.asm.propagate(U, self.jitter)
 
@@ -392,9 +392,9 @@ class Optimizer:
 
             # ASM field propagation
             if self.device.type != "cpu" and use_checkpoint:
-                U = checkpoint(forward_propagate, height_raw, use_reentrant=False)
+                U = checkpoint(forward_propagate, height_raw, blur_radius, use_reentrant=False)
             else:
-                U = forward_propagate(height_raw)
+                U = forward_propagate(height_raw, blur_radius)
             if i == 0:
                 self.mem.tick("U", U.numel() * 8)
 
