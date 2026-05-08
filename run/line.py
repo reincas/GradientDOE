@@ -3,44 +3,66 @@
 # <reinhard.caspary@phoenixd.uni-hannover.de>                            #
 # This program is free software under the terms of the MIT license.      #
 ##########################################################################
+#
+# Plot a given row segment for all resolutions
+#
+##########################################################################
 
 import h5py
 import matplotlib.pyplot as plt
+from pathlib import Path
+
+from gradientdoe.experiment import next_power_of_2
 
 
-def plot_hdf5_row(file_path, dataset_name, row_index, slice):
-    try:
-        # Open the HDF5 file in read-only mode
-        with h5py.File(file_path, 'r') as h5_file:
-            # Access the dataset
-            dataset = h5_file[dataset_name]
+def pow2range(start, stop):
+    count = next_power_of_2(start)
+    counts = [count]
+    while count < stop:
+        count *= 2
+        counts.append(count)
+    return counts
 
-            # Check if the dataset is 2D
-            if len(dataset.shape) != 2:
-                print(f"Error: Dataset '{dataset_name}' is {len(dataset.shape)}D, but a 2D array is required.")
-                return
 
-            # Extract the specific row
-            # Using slicing [row_index, :] is efficient as it only loads that row into memory
-            row_data = dataset[row_index, slice]
+def get_pos(count, pitch, i):
+    start_pos = -count * pitch / 2
+    end_pos = count * pitch / 2
+    step = (end_pos - start_pos) / (count - 1)
+    return start_pos + (i * step)
 
-            # Plotting the data
-            plt.figure(figsize=(10, 5))
-            plt.plot(row_data, marker='o', linestyle='-', markersize=2)
-            plt.title(f"Dataset: {dataset_name} | Row Index: {row_index}")
-            plt.xlabel("Column Index")
-            plt.ylabel("Value")
-            plt.grid(True, linestyle='--', alpha=0.7)
-            plt.show()
 
-    except FileNotFoundError:
-        print(f"Error: The file '{file_path}' was not found.")
-    except KeyError:
-        print(f"Error: Dataset '{dataset_name}' not found in the file.")
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+def hdf5_rows(root, counts, pitch, size, off=0.0):
+    with h5py.File(root / "height.h5", 'r') as h5_file:
+        lines = []
+        for N, count in enumerate(counts):
+            name = f"height_{count}"
+            imin = round(count * ((1 - size) / 2 + off))
+            imax = round(count * ((1 + size) / 2 + off))
+            x = [get_pos(count, pitch, i) for i in range(imin, imax)]
+            y = h5_file[name][count // 2, imin:imax] + 3.0 * N
+            lines.append((x, y))
+            pitch /= 2
+    return lines
+
+
+def plot_hdf5_row(lines, path=None):
+    plt.figure(figsize=(10, 10))
+    for x, y in lines:
+        plt.plot(x, y, color='blue', marker='x', markeredgecolor='red', linestyle='-', markersize=6)
+    #plt.title(f"Dataset: {dataset_name} | Row Index: {row_index}")
+    plt.xlabel("Position / µm")
+    plt.ylabel("Height / µm")
+    plt.grid(True, linestyle='--', alpha=0.7)
+    if path is not None:
+        plt.savefig(path, bbox_inches='tight', dpi=300)
+    plt.show()
+    plt.close()
+
 
 if __name__ == "__main__":
-    path = "./result_07/height.h5"
-    name = "height_1024"
-    plot_hdf5_row(path, name, 500, slice(400, 600))
+    root = Path("result_18")
+    size = 0.05
+    counts = pow2range(128, 8*1024)
+    lines = hdf5_rows(root, counts, 16.0, size, off=-0.2)
+    plot_hdf5_row(lines, root)
+    plot_hdf5_row(lines, root / "lines.png")
