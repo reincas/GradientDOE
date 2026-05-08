@@ -100,14 +100,14 @@ def init_logger(root_path, level=logging.INFO):
     root.addHandler(console_h)
 
 
-def write_height(height, count, path):
+def write_height(height, name, attrs, path):
     """ Store height profile in HDF5 file. """
 
-    name = f"height_{count}"
     with h5py.File(path, "a") as fp:
         if name in fp:
             del fp[name]
-        fp.create_dataset(name, data=height, dtype='float32')
+        dataset = fp.create_dataset(name, data=height, dtype='float32')
+        dataset.attrs.update(attrs)
         logger.info(f"Height profile {name} stored in {path}")
 
 
@@ -158,22 +158,37 @@ if __name__ == '__main__':
     height = None
     opt_height = None
     opt_count = None
+    opt_name = None
     i = 0
     while count <= exp.grid.countFinal:
         optimizer = Optimizer(exp, checkpoint=CHECKPOINT)
+        name = f"height_{count}"
         if count <= CHECKPOINT:
             if height is None:
+                src = "random"
                 height = optimizer.init_height()
             else:
+                src = opt_name
                 height = optimizer.interpolate_height(height, count)
             optimizer.set_grid(count, pitch)
             learning_rate = initial_learning_rate * rate_base ** i
             height = optimizer.run(height, learning_rate)
             opt_height = height
             opt_count = count
+            opt_name = name
+            mode = "optimized"
         else:
+            src = opt_name
             height = optimizer.interpolate_height(opt_height, count)
-        write_height(height, count, height_path)
+            mode = "interpolated"
+        attrs = {
+            "count": count,
+            "pitch": pitch,
+            "unit": exp.doe.pitchUnit,
+            "mode": mode,
+            "source": src,
+        }
+        write_height(height, name, attrs, height_path)
         count *= 2
         pitch /= 2
         i += 1
