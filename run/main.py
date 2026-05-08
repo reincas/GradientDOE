@@ -96,8 +96,6 @@ EXPERIMENT = {
             "patience": 200,
             "threshold": 1e-2,
             "alpha": 0.2,
-            "loss": None,  # Determined by Ema.step()
-            "bestLoss": None,  # Determined by Ema.step()
         },
     }
 }
