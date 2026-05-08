@@ -78,7 +78,6 @@ EXPERIMENT = {
         "skipCenter": True,
         "eta": None,  # Determined by Experiment.adjust_parameters()
         "minOversample": 16,
-        "oversample": 0,
     },
     "optimizer": {
         "maxLoops": 1000000,

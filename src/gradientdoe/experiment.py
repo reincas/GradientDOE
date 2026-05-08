@@ -63,7 +63,6 @@ class SensorParameter(Parameter):
     skipCenter: bool
     eta: Spectrum
     minOversample: int
-    oversample: int
 
     def __init__(self, data):
         super().__init__(data)
