@@ -14,7 +14,7 @@ import math
 from matplotlib import pyplot as plt, patches as patches
 import numpy as np
 from pathlib import Path
-from PIL import Image
+from PIL import Image, PngImagePlugin
 import sys
 
 from gradientdoe.experiment import Experiment
@@ -155,15 +155,20 @@ def store_power_plots(Ps, P, pitch, sensor, cmap, names, path):
     plt.close(fig)
 
 
-def store_height_profile(height, path):
-    """ Store the height profile as a 16-bit PNG. """
+def store_height_profile(height, path, uuid=None):
+    """ Store the height profile as a 16-bit PNG with optional reference UUID. """
 
     step_size = get_next_preferred_number(np.max(height) / (2 ** 16 - 1))
     h_int16 = np.round(height / step_size).astype(np.uint16)
     assert np.max(h_int16) < 2 ** 16 - 1
 
     img = Image.fromarray(h_int16)
-    img.save(path, format="PNG", compress_level=6)
+    if uuid is None:
+        img.save(path, format="PNG", compress_level=6)
+    else:
+        meta = PngImagePlugin.PngInfo()
+        meta.add_text("UUID", uuid)
+        img.save(path, format="PNG", compress_level=6, pnginfo=meta)
     return step_size
 
 
