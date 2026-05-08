@@ -60,9 +60,9 @@ def plot_hdf5_row(lines, path=None):
 
 
 if __name__ == "__main__":
-    root = Path("result_17")
+    root = Path("result_19")
     size = 0.05
     counts = pow2range(128, 8*1024)
     lines = hdf5_rows(root, counts, 16.0, size, off=-0.0)
     plot_hdf5_row(lines, root)
-    plot_hdf5_row(lines)#, root / "lines.png")
+    plot_hdf5_row(lines, root / "lines.png")
