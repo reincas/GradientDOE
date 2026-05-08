@@ -16,7 +16,8 @@ logger = logging.getLogger("experiment")
 
 
 class DoeParameter(Parameter):
-    material: IndexSpectrum
+    material: str
+    refractiveIndex: IndexSpectrum
     pitch: float
     pitchUnit: str
     count: int
