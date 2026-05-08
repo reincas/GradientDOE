@@ -196,8 +196,8 @@ if __name__ == '__main__':
             opt_count = count
         else:
             height = optimizer.interpolate_height(opt_height, count)
-            blur_radius = exp.doe.blurRadius / pitch
-            height = gaussian_blur(height, blur_radius)
+            #blur_radius = exp.doe.blurRadius / pitch
+            #height = gaussian_blur(height, blur_radius)
         write_height(height, count, height_path)
         count *= 2
         pitch /= 2
