@@ -113,8 +113,14 @@ class IndexSpectrum(Spectrum):
     sellmeier: Sellmeier
 
     def __init__(self, data, wavelengths=None):
+
+        # Prepare parameter dictionary
         if isinstance(data, Parameter):
             data = data.to_dict()
+        data["data"] = []
+        data["dataColumns"] = ("Wavelength", "Refractive Index")
+        data["dataUnits"] = (data["sellmeier"]["unit"], "")
+
         Parameter.__init__(self, data)
         self.sellmeier = Sellmeier(self.sellmeier)
         if wavelengths is not None:

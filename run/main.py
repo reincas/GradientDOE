@@ -35,10 +35,7 @@ MATERIALS = {
             "B3": 0.00123045,
             "C3": 4.77717770,
         },
-        "data": [],
-        "dataColumns": ("Wavelength", "Refractive Index"),
-        "dataUnits": ("µm", ""),
-    },
+   },
 }
 
 EXPERIMENT = {
