@@ -1,5 +1,3 @@
-from pathlib import Path
-import openpyxl
 ##########################################################################
 # Copyright (c) 2026 Reinhard Caspary                                    #
 # <reinhard.caspary@phoenixd.uni-hannover.de>                            #
@@ -7,6 +5,8 @@ import openpyxl
 ##########################################################################
 
 import json
+from pathlib import Path
+import openpyxl
 
 from gradientdoe.spectrum import Spectrum
 
