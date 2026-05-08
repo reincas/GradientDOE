@@ -372,7 +372,7 @@ class Optimizer:
             loss = l_ortho + l_eta + l_grad
 
             # EMA smoothing step
-            if ema.step((l_ortho + l_eta).item() + l_grad.item()) or i == 0:
+            if ema.step(loss) or i == 0:
                 best_height = height_tensor.detach().cpu().numpy()
                 P_over = P.mean() / (self.count ** 2 * self.sensor.area_ratio)
                 diff_x = np.max(np.abs(best_height[:, 1:] - best_height[:, :-1]))
