@@ -73,7 +73,6 @@ class SensorParameter(Parameter):
 
 class OptParameter(Parameter):
     maxLoops: int
-    checkpointThreshold: int
     initialLearningRate: float
     finalLearningRate: float
     maxHeightFactor: float

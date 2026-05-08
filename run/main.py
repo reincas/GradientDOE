@@ -20,6 +20,9 @@ from gradientdoe.spectrum import opt_spectra, show_opt
 
 logger = logging.getLogger("main")
 
+# Pixel count which requires checkpoint on the Adam optimiser
+CHECKPOINT = 4 * 1024
+
 EXPERIMENT = {
     "doe": {
         "material": "IP-S",
@@ -62,7 +65,6 @@ EXPERIMENT = {
     "optimizer": {
         "version": __version__,
         "maxLoops": 1000000,
-        "checkpointThreshold": 4 * 1024,
         "initialLearningRate": 0.05,
         "finalLearningRate": 0.05,
         "maxHeightFactor": 0.02,
@@ -158,8 +160,8 @@ if __name__ == '__main__':
     opt_count = None
     i = 0
     while count <= exp.grid.countFinal:
-        optimizer = Optimizer(exp)
-        if count <= exp.optimizer.checkpointThreshold:
+        optimizer = Optimizer(exp, checkpoint=CHECKPOINT)
+        if count <= CHECKPOINT:
             if height is None:
                 height = optimizer.init_height()
             else:

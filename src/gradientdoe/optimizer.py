@@ -162,10 +162,10 @@ class Optimizer:
     sensor_masks: torch.Tensor
     asm: AngularSpectrumMethod
 
-    def __init__(self, exp, device=None):
+    def __init__(self, exp, checkpoint=None, device=None):
 
         self.exp = exp
-        self.jitter = exp.optimizer.jitter
+        self.checkpoint = checkpoint
 
         # Initialise PyTorch environment
         if device is None:
@@ -185,9 +185,11 @@ class Optimizer:
             logger.info(f"    Reserved:   {r / 1024 ** 3:.2f} GB")
             logger.info(f"    Allocated:  {a / 1024 ** 3:.2f} GB")
 
+        # Use spatial grid jitter
+        self.jitter = exp.optimizer.jitter
+
         # Initialise DOE
-        self.doe = DiffractiveOpticalElement(self.exp.setup.wavelengths, self.exp.doe.refractiveIndex.values,
-                                             self.device)
+        self.doe = DiffractiveOpticalElement(self.exp.setup.wavelengths, self.exp.doe.refractiveIndex.values, self.device)
 
         # Initialise the sensor array
         self.sensor = SensorArray(self.exp.sensor)
@@ -317,7 +319,7 @@ class Optimizer:
         opt = self.exp.optimizer
         optimizer = torch.optim.Adam([height_opt], lr=learning_rate)
 
-        use_checkpoint = self.count >= opt.checkpointThreshold
+        use_checkpoint = self.checkpoint is not None and self.count >= self.checkpoint
         logger.info(f"    Using checkpoint: {use_checkpoint}")
 
         blur_radius = self.exp.doe.blurRadius / self.pitch

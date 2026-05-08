@@ -22,6 +22,9 @@ from gradientdoe.optimizer import Optimizer
 
 logger = logging.getLogger("plot")
 
+# Maximum pixel count for the GPU
+MAX_COUNT = 4 * 1024
+
 
 def init_logger(root_path, level=logging.INFO):
     root = logging.getLogger()
@@ -38,6 +41,7 @@ def init_logger(root_path, level=logging.INFO):
     console_h.setFormatter(log_format)
     console_h.setLevel(level)
     root.addHandler(console_h)
+
 
 def get_next_preferred_number(x: float) -> float:
     """ Return the next larger 1*10^N, 2*10^N, or 5*10^N for a given positive float x. """
@@ -246,7 +250,7 @@ if __name__ == "__main__":
     exp = Experiment.read(root / "parameters.json")
     count = exp.grid.count
     while count <= exp.grid.countFinal:
-        device = None if count <= exp.optimizer.checkpointThreshold else "cpu"
-        optimizer = Optimizer(exp, device)
+        device = None if count <= MAX_COUNT else "cpu"
+        optimizer = Optimizer(exp, device=device)
         plot(optimizer, count, root)
         count *= 2
