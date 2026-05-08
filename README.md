@@ -1,4 +1,4 @@
-# GradientDOE 0.2.1
+# GradientDOE 0.2.2
 
 This is a Python 3 package to determine the height profile of a multi-wavelength phase plate or Diffractive Optical
 Element (DOE) using the nonlinear optimiser Adam from the PyTorch package. 
