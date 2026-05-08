@@ -49,7 +49,6 @@ def plot_hdf5_row(lines, path=None):
     plt.figure(figsize=(10, 10))
     for x, y in lines:
         plt.plot(x, y, color='blue', marker='x', markeredgecolor='red', linestyle='-', markersize=6)
-    #plt.title(f"Dataset: {dataset_name} | Row Index: {row_index}")
     plt.xlabel("Position / µm")
     plt.ylabel("Height / µm")
     plt.grid(True, linestyle='--', alpha=0.7)
@@ -60,9 +59,8 @@ def plot_hdf5_row(lines, path=None):
 
 
 if __name__ == "__main__":
-    root = Path("result_19")
+    root = Path("result_y01")
     size = 0.05
-    counts = pow2range(128, 8*1024)
+    counts = pow2range(128, 8 * 1024)
     lines = hdf5_rows(root, counts, 16.0, size, off=-0.0)
-    plot_hdf5_row(lines, root)
     plot_hdf5_row(lines, root / "lines.png")
