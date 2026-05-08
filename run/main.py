@@ -20,27 +20,10 @@ from gradientdoe.spectrum import opt_spectra, show_opt
 
 logger = logging.getLogger("main")
 
-MATERIALS = {
-    "IP-S": {
-        "description": "Polymer for laser lithography",
-        "type": "material",
-        "model": "IP-S",
-        "manufacturer": "Nanoscribe",
-        "sellmeier": {
-            "unit": "µm",
-            "B1": 0.74320827,
-            "C1": 0.00000000,
-            "B2": 0.49798931,
-            "C2": 0.03596280,
-            "B3": 0.00123045,
-            "C3": 4.77717770,
-        },
-   },
-}
-
 EXPERIMENT = {
     "doe": {
-        "material": None,  # Determined by main()
+        "material": "IP-S",
+        "refractiveIndex": None,  # Determined by Experiment.adjust_parameters()
         "pitch": 0.25,
         "pitchUnit": "µm",
         "count": 8 * 1024,
@@ -64,6 +47,7 @@ EXPERIMENT = {
     },
     "sensor": {
         "model": "a2A3536-31umBAS",
+        "eta": None,  # Determined by Experiment.adjust_parameters()
         "horizontalCount": 2,
         "verticalCount": 2,
         "pitch": 1000,
@@ -73,7 +57,6 @@ EXPERIMENT = {
         "fuzzyRadius": 5,
         "fuzzyRadiusUnit": "µm",
         "skipCenter": True,
-        "eta": None,  # Determined by Experiment.adjust_parameters()
         "minOversample": 16,
     },
     "optimizer": {
@@ -152,12 +135,9 @@ if __name__ == '__main__':
     wavelengths, spectra = opt_spectra(src_model, models, coverage)
     show_opt(spectra)
 
-    # DOE material
-    material = MATERIALS["IP-S"]
-
     # Experimental setup
     exp = Experiment(EXPERIMENT)
-    exp.adjust_parameters(wavelengths, spectra, material)
+    exp.adjust_parameters(wavelengths, spectra)
     path = root / "parameters.json"
     exp.write(path)
     logger.info(f"Optimization parameters stored in {path}")
@@ -190,8 +170,8 @@ if __name__ == '__main__':
             opt_count = count
         else:
             height = optimizer.interpolate_height(opt_height, count)
-            #blur_radius = exp.doe.blurRadius / pitch
-            #height = gaussian_blur(height, blur_radius)
+            # blur_radius = exp.doe.blurRadius / pitch
+            # height = gaussian_blur(height, blur_radius)
         write_height(height, count, height_path)
         count *= 2
         pitch /= 2

@@ -184,7 +184,7 @@ class Optimizer:
             logger.info(f"    Allocated:  {a / 1024 ** 3:.2f} GB")
 
         # Initialise DOE
-        self.doe = DiffractiveOpticalElement(self.exp.setup.wavelengths, self.exp.doe.material.values, self.device)
+        self.doe = DiffractiveOpticalElement(self.exp.setup.wavelengths, self.exp.doe.refractiveIndex.values, self.device)
 
         # Initialise the sensor array
         self.sensor = SensorArray(self.exp.sensor)

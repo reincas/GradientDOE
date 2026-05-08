@@ -10,9 +10,9 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from gradientdoe.element import DiffractiveOpticalElement
+from gradientdoe.parameter import Parameter
 from gradientdoe.propagate import RayleighSommerfeldMethod, AngularSpectrumMethod
 from gradientdoe.spectrum import IndexSpectrum
-from run.main import MATERIALS
 
 
 def spherical_lens(pitch, count, focus_distance, delta_n):
@@ -66,7 +66,9 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     wavelengths = np.array([0.640])
-    material = IndexSpectrum(MATERIALS["IP-S"], wavelengths)
+    model = "IP-S"
+    material = Parameter.read(f"../materials/{model}.json")
+    material = IndexSpectrum(material, wavelengths)
     n = np.array(material.values)
     Nk = len(wavelengths)
 

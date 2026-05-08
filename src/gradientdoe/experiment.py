@@ -27,8 +27,8 @@ class DoeParameter(Parameter):
 
     def __init__(self, data):
         super().__init__(data)
-        if self.material is not None:
-            self.material = IndexSpectrum(self.material)
+        if self.refractiveIndex is not None:
+            self.refractiveIndex = IndexSpectrum(self.refractiveIndex)
 
 
 class GridParameter(Parameter):
@@ -112,7 +112,7 @@ class Experiment(Parameter):
         self.sensor = SensorParameter(self.sensor)
         self.optimizer = OptParameter(self.optimizer)
 
-    def adjust_parameters(self, wavelengths, spectra, material):
+    def adjust_parameters(self, wavelengths, spectra):
         logger.info("Initializing experiment")
 
         # List of wavelengths
@@ -148,8 +148,10 @@ class Experiment(Parameter):
         assert z >= zc, f"Propagation distance {z:.0f} µm below minimum for given grid ({zc:.0f} µm)."
         logger.info(f"    Sensor distance: {z * 1e-3:.3f} mm")
 
-        self.doe.material = IndexSpectrum(material, wavelengths)
-        mean = np.mean(np.array(self.doe.material.values, dtype=np.float32))
+        model = self.doe.material
+        material = Parameter.read(f"../materials/{model}.json")
+        self.doe.refractiveIndex = IndexSpectrum(material, wavelengths)
+        mean = np.mean(np.array(self.doe.refractiveIndex.values, dtype=np.float32))
         logger.info(f"    Mean refractive index: {mean:.4f}")
 
         model = self.sensor.model
