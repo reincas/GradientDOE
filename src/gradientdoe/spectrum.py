@@ -117,9 +117,13 @@ class IndexSpectrum(Spectrum):
         # Prepare parameter dictionary
         if isinstance(data, Parameter):
             data = data.to_dict()
-        data["data"] = []
-        data["dataColumns"] = ("Wavelength", "Refractive Index")
-        data["dataUnits"] = (data["sellmeier"]["unit"], "")
+        if "data" in data:
+            assert data["dataColumns"] == ["Wavelength", "Refractive Index"], str(data["dataColumns"])
+            assert data["dataUnits"] == [data["sellmeier"]["unit"], ""], str(data["dataUnits"])
+        else:
+            data["data"] = []
+            data["dataColumns"] = ["Wavelength", "Refractive Index"]
+            data["dataUnits"] = [data["sellmeier"]["unit"], ""]
 
         Parameter.__init__(self, data)
         self.sellmeier = Sellmeier(self.sellmeier)
