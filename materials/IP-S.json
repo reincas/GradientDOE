@@ -1,0 +1,15 @@
+{
+    "description": "Polymer for laser lithography",
+    "manufacturer": "Nanoscribe",
+    "model": "IP-S",
+    "sellmeier": {
+        "B1": 0.74320827,
+        "B2": 0.49798931,
+        "B3": 0.00123045,
+        "C1": 0.0,
+        "C2": 0.0359628,
+        "C3": 4.7771777,
+        "unit": "µm"
+    },
+    "type": "material"
+}

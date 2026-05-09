@@ -1,7 +1,7 @@
 .venv/
 attic/
 private/
-run/plots/
+run/results/
 
 __pycache__/
 *.py[cod]
