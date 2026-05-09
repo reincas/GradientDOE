@@ -1,4 +1,4 @@
-# GradientDOE 0.2.2
+# GradientDOE 0.3.0
 
 This is a Python 3 package to determine the height profile of a multi-wavelength phase plate or Diffractive Optical
 Element (DOE) using the nonlinear optimiser Adam from the PyTorch package. 
@@ -17,13 +17,15 @@ Modify the values in the dictionary `EXPERIMENT` on top of the script `run/main.
 
 ## Optimize Phase Plates
 
-Optimised height structures will be calculated and stored in the folder `result` when you run
+Optimised height structures will be calculated and stored in the
+[SciDataContainer](https://scidatacontainer.readthedocs.io) file `result.zdc` (zip file with structured metadata)
+when you run
 
 ```
 python run/main.py result
 ```
 
-A GPU with 8 GB VRAM is able to run the optimisation for pixel counts up to 4096.
+A GPU with 8 GB VRAM is able to run the optimisation for pixel counts up to 4096. 
 
 ## Plot Results
 
