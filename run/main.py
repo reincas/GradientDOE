@@ -13,9 +13,13 @@ import logging
 import math
 from pathlib import Path
 import sys
+from scidatacontainer import Container
+from zipfile import ZIP_STORED
 
+from gradientdoe import __version__ as software_version
 from gradientdoe.experiment import Experiment
-from gradientdoe.optimizer import Optimizer, __version__
+from gradientdoe.optimizer import Optimizer
+from gradientdoe.optimizer import __version__ as optimizer_version
 from gradientdoe.spectrum import opt_spectra, show_opt
 
 logger = logging.getLogger("main")
@@ -63,7 +67,7 @@ EXPERIMENT = {
         "minOversample": 16,
     },
     "optimizer": {
-        "version": __version__,
+        "version": optimizer_version,
         "maxLoops": 1000000,
         "initialLearningRate": 0.05,
         "finalLearningRate": 0.05,
@@ -83,13 +87,12 @@ EXPERIMENT = {
 }
 
 
-def init_logger(root_path, level=logging.INFO):
+def init_logger(file_name, level=logging.INFO):
     root = logging.getLogger()
     root.setLevel(level)
     log_format = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-    file = root_path / "main.log"
-    file_h = logging.FileHandler(file, mode="a")
+    file_h = logging.FileHandler(file_name, mode="a")
     file_h.setFormatter(log_format)
     file_h.setLevel(level)
     root.addHandler(file_h)
@@ -108,7 +111,7 @@ def write_height(height, name, attrs, path):
             del fp[name]
         dataset = fp.create_dataset(name, data=height, dtype='float32')
         dataset.attrs.update(attrs)
-        logger.info(f"Height profile {name} stored in {path}")
+        # logger.info(f"Height profile {name} stored in {path}")
 
 
 def get_path():
@@ -124,12 +127,19 @@ if __name__ == '__main__':
     if root is None:
         print("Result folder required as command line argument.")
         sys.exit(1)
-    if root.exists():
-        print(f"Result folder {root} already exists.")
+
+    dc_path = Path(str(root) + ".zdc")
+    if dc_path.exists():
+        print(f"Data container {dc_path} already exists.")
         sys.exit(2)
 
-    root.mkdir()
-    init_logger(root)
+    if root.exists():
+        print(f"Folder {root} already exists.")
+        sys.exit(3)
+
+    root.mkdir(parents=True)
+    log_path = root / "tmp_main.log"
+    init_logger(log_path, logging.INFO)
 
     # Artificial specimen spectra
     src_model = "CSL1"
@@ -141,9 +151,9 @@ if __name__ == '__main__':
     # Experimental setup
     exp = Experiment(EXPERIMENT)
     exp.adjust_parameters(wavelengths, spectra)
-    path = root / "parameters.json"
-    exp.write(path)
-    logger.info(f"Optimization parameters stored in {path}")
+    exp_path = root / "tmp_parameters.json"
+    exp.write(exp_path)
+    # logger.info(f"Optimization parameters stored in {exp_path}")
 
     # Determine suitable height profile
     count = exp.grid.count
@@ -154,7 +164,7 @@ if __name__ == '__main__':
     final_learning_rate = exp.optimizer.finalLearningRate
     rate_base = 10 ** (math.log10(final_learning_rate / initial_learning_rate) / (steps - 1))
 
-    height_path = root / "height.h5"
+    height_path = root / "tmp_height.hdf5"
     height = None
     opt_height = None
     opt_count = None
@@ -162,7 +172,7 @@ if __name__ == '__main__':
     i = 0
     while count <= exp.grid.countFinal:
         optimizer = Optimizer(exp, checkpoint=CHECKPOINT)
-        name = f"height_{count}"
+        name = f"height_{count:06d}"
         if count <= CHECKPOINT:
             if height is None:
                 src = "random"
@@ -192,3 +202,37 @@ if __name__ == '__main__':
         count *= 2
         pitch /= 2
         i += 1
+
+    logger.info(f"Preparing data container file: {dc_path}")
+    logging.shutdown()
+    with open(log_path, "r") as fp:
+        logs = fp.read()
+
+    items = {
+        "content.json": {
+            "containerType": {"name": "ameliOperator"},
+            "usedSoftware": [{"name": "GradientDOE", "version": software_version,
+                              "id": "https://github.com/reincas/GradientDOE", "idType": "URL"}],
+        },
+        "meta.json": {
+            "title": "GradientDOE",
+            "description": "Optimized height profile of a optical multi-wavelength phase plate",
+            "license": "cc-by-sa-4.0",
+        },
+        "data/parameters.json": exp.to_dict(),
+        "data/main.log": logs,
+        "data/height.hdf5": {"path": height_path, "compression": ZIP_STORED}
+    }
+    dc = Container(items=items)
+    with h5py.File(height_path, 'a') as f:
+        f.attrs["refUUID"] = dc.uuid
+    dc.write(str(dc_path))
+
+    exp_path.unlink()
+    print(f"Deleted {exp_path}")
+    log_path.unlink()
+    print(f"Deleted {log_path}")
+    height_path.unlink()
+    print(f"Deleted {height_path}")
+    root.rmdir()
+    print(f"Deleted {root}")

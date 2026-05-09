@@ -17,6 +17,9 @@ from pathlib import Path
 from PIL import Image, PngImagePlugin
 import sys
 
+from scidatacontainer import Container
+
+from gradientdoe import RawItem
 from gradientdoe.experiment import Experiment
 from gradientdoe.optimizer import Optimizer
 
@@ -24,6 +27,18 @@ logger = logging.getLogger("plot")
 
 # Maximum pixel count for the GPU
 MAX_COUNT = 4 * 1024
+
+# XMP packet with reference UUID for PNG file
+XMP = """<?xpacket begin='' id='W5M0MpCehiHzreSzNTczkc9d'?>
+<x:xmpmeta xmlns:x='adobe:ns:meta/'>
+    <rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>
+        <rdf:Description rdf:about='' xmlns:dc='http://purl.org/dc/elements/1.1/'>
+            <dc:identifier>{uuid}</dc:identifier>
+            <dc:description>Data Container UUID</dc:description>
+        </rdf:Description>
+    </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end='r'?>"""
 
 
 def init_logger(root_path, level=logging.INFO):
@@ -78,7 +93,7 @@ def read_height(filename, count=None):
     with h5py.File(filename, "r") as fp:
         if count is None:
             count = max([int(x.split("_", 1)[1]) for x in fp.keys() if x.startswith("height_")])
-        name = f"height_{count}"
+        name = f"height_{count:06d}"
         assert name in fp.keys()
         return np.array(fp[name])
 
@@ -159,7 +174,7 @@ def store_power_plots(Ps, P, pitch, sensor, cmap, names, path):
     plt.close(fig)
 
 
-def store_height_profile(height, path, uuid=None):
+def store_height_profile(height, path, uuid):
     """ Store the height profile as a 16-bit PNG with optional reference UUID. """
 
     step_size = get_next_preferred_number(np.max(height) / (2 ** 16 - 1))
@@ -171,22 +186,27 @@ def store_height_profile(height, path, uuid=None):
         img.save(path, format="PNG", compress_level=6)
     else:
         meta = PngImagePlugin.PngInfo()
-        meta.add_text("UUID", uuid)
+        xmp = XMP.format(uuid=uuid)
+        meta.add_text("XML:com.adobe.xmp", xmp)
+        comment = f"Data Container {uuid}"
+        meta.add_text("Comment", comment)
+        meta.add_text("Description", comment)
         img.save(path, format="PNG", compress_level=6, pnginfo=meta)
     return step_size
 
 
-def plot(optimizer, count, root):
+def plot(optimizer, height, uuid, root):
     exp = optimizer.exp
     if not isinstance(root, Path):
         root = Path(root)
 
-    # Height profile
-    height_path = root / "height.h5"
-    height = read_height(height_path, count)
     logger.info(f"Phase plate height profile:")
+    assert isinstance(height, np.ndarray)
+    assert len(height.shape) == 2
+    assert height.shape[0] == height.shape[1]
 
     # Pixel pitch
+    count = height.shape[0]
     M = count // exp.grid.count
     pitch = exp.grid.pitch / M
     logger.info(f"    Pixel pitch:     {pitch:.1f} µm")
@@ -200,11 +220,11 @@ def plot(optimizer, count, root):
 
     # Store height profile as 16-bit PNG image
     path = root / f"profile_{count}.png"
-    step_size = store_height_profile(height, path)
+    step_size = store_height_profile(height, path, uuid)
     logger.info(f"    Stored fabrication file: {path} with step size: {step_size} µm")
 
     # Store height profile as plot
-    name = exp.doe.material.model
+    name = exp.doe.material
     path = root / f"height_{count}.png"
     store_height_plot(height, pitch, cmap, name, path)
     logger.info(f"    Stored height profile image: {path}")
@@ -237,20 +257,29 @@ def get_path():
 
 if __name__ == "__main__":
     root = get_path()
+    dc_path = Path(str(root) + ".zdc")
+    assert dc_path.exists()
+
     if root is None:
-        logger.info("Result folder required as command line argument.")
+        print("Result folder required as command line argument.")
         sys.exit(1)
     if not root.exists():
-        logger.info(f"Result folder {root} does not exist.")
-        sys.exit(2)
+        root.mkdir(parents=True)
 
     init_logger(root)
 
     # Initialise optimizer and load height profile
-    exp = Experiment.read(root / "parameters.json")
+    dc = Container(file=str(dc_path), ignore_items=["data/height.hdf5"])
+    logger.info(f"Data container: {dc.uuid}")
+    exp = Experiment(dc["data/parameters.json"])
+
     count = exp.grid.count
     while count <= exp.grid.countFinal:
         device = None if count <= MAX_COUNT else "cpu"
         optimizer = Optimizer(exp, device=device)
-        plot(optimizer, count, root)
+
+        height_file = RawItem(str(dc_path), "data/height.hdf5")
+        with h5py.File(height_file, 'r') as fp:
+            height = fp[f"height_{count:06d}"][()]
+        plot(optimizer, height, dc.uuid, root)
         count *= 2
