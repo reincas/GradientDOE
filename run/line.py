@@ -12,6 +12,7 @@ import h5py
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+from gradientdoe import RawItem
 from gradientdoe.experiment import next_power_of_2
 
 
@@ -32,10 +33,12 @@ def get_pos(count, pitch, i):
 
 
 def hdf5_rows(root, counts, pitch, size, off=0.0):
-    with h5py.File(root / "height.h5", 'r') as h5_file:
+    dc_path = Path(str(root) + ".zdc")
+    height_file = RawItem(dc_path, "data/height.hdf5")
+    with h5py.File(height_file, 'r') as h5_file:
         lines = []
         for N, count in enumerate(counts):
-            name = f"height_{count}"
+            name = f"height_{count:06d}"
             imin = round(count * ((1 - size) / 2 + off))
             imax = round(count * ((1 + size) / 2 + off))
             x = [get_pos(count, pitch, i) for i in range(imin, imax)]
@@ -59,7 +62,7 @@ def plot_hdf5_row(lines, path=None):
 
 
 if __name__ == "__main__":
-    root = Path("result_y01")
+    root = Path("results/result_20")
     size = 0.05
     counts = pow2range(128, 8 * 1024)
     lines = hdf5_rows(root, counts, 16.0, size, off=-0.0)
